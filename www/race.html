@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Race Replay</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=1320, user-scalable=no">
+        <script src="js/lib.js"></script>
+
+        <script>
+            if ( typeof window.console === 'undefined' ) {
+                window.console = {
+                    info: function() {}
+                }
+            }
+
+            var app = _.extend({}, Backbone.Events);
+            
+            var less = { 
+                    env: 'development',
+                    errorReporting: 'console' 
+                };
+
+        </script>
+
+        <script src="js/data.js"></script>
+        <script src="js/graph.js"></script>
+        <script src="js/map.js"></script>
+
+        <script>
+        
+            var metrics = [{'metric':'tws', 'group':'wind'},
+                           {'metric':'twd', 'group':'twd'},
+                           {'metric':'filteredTwd', 'group':'twd'},
+                           {'metric':'percentPerformance', 'group':'percent'},
+                           {'metric':'sog', 'group':'speed'}, 
+                           {'metric':'speed', 'group':'speed'},
+                           {'metric':'targetSpeed', 'group':'speed'}, 
+                           {'metric':'hdg', 'group':'heading'},
+                           {'metric':'aawa', 'group':'angle', 'transform':function(val) { return Math.abs(val) }},
+                           {'metric':'atwa', 'group':'angle', 'transform':function(val) { return Math.abs(val) }},
+                           {'metric':'targetAngle', 'group':'angle'}, 
+                           {'metric':'trim', 'group':'heel'},
+                           {'metric':'heel', 'group':'heel'},
+                           {'metric':'targetHeel', 'group':'heel'}, 
+                           {'metric':'vmg', 'group':'speed'} ];
+
+            var configs = {
+                'wind': {showX: true},
+                'percent': {rangeY: [90, 110]},
+                'angle': {invertY: true}
+            }
+
+            var graphs = [];
+            
+            function initialize() {
+                showCheckboxes();
+                showMap();
+                showGraphs();
+            }
+
+            function showCheckboxes() {
+                var keys = ['tws', 'sog', 'speed', 'hdg'];
+                if (localStorage.race_metrics) {
+                    keys = JSON.parse(localStorage.race_metrics);
+                }
+
+                _(metrics).each(function(metric) {
+                    $('<label><input type="checkbox" class="metric">'+metric.metric+'</label>')
+                        .appendTo('#checkboxes')
+                        .find('input')
+                            .prop('checked', _.contains(keys, metric.metric))
+                            .val(metric.metric)
+                })
+
+                $('#checkboxes').on('change', '.metric', function() {
+                    if (this.checked) {
+                        keys.push(this.value);
+                    }
+                    else {
+                        keys = _.without(keys, this.value);
+                    }
+
+                    localStorage.race_metrics = JSON.stringify(keys);
+                    showGraphs();
+                })
+            }
+
+            function showMap() {
+                //TODO: highlight nearest data point for all series
+                //TODO: map to boat
+
+                var map = window.map = new mapView({model: window.race, el: '#map_canvas'});
+                map.render();
+            }
+
+            function showGraphs() {
+
+                var keys = ['tws', 'speed', 'targetSpeed', 'atwa', 'targetAngle'];
+                if (localStorage.race_metrics) {
+                    keys = JSON.parse(localStorage.race_metrics);
+                }
+
+                _.each(graphs, function(graph) { 
+                    graph.remove();
+                });
+                graphs = [];
+
+                graphs = _(metrics)
+                            .filter(function(m){ return _.contains(keys, m.metric)})
+                            .groupBy(function(m) { return m.group })
+                            .map( function(metrics, name) {
+                                var graph = new graphView({race: window.race, series: _.pluck(metrics, 'metric'), id: name+'_graph'}, configs[name]);
+                                $('#graphs').append(graph.el);
+                                graph.render();
+                                return graph;
+                            }).valueOf();
+            }                
+              
+            //load data  
+            $(function() {
+                Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
+                    return Handlebars.compile(rawTemplate);
+                };
+
+                Handlebars.registerHelper('fixed', function(value, precision) {
+                    if (!_.isNumber(value)) {
+                        return "NaN";
+                    }
+                    precision = _.isNumber(precision)? precision: 1;
+                    return value.toFixed(precision);
+                });
+
+                $.ajax('races/' + window.location.search.substr(1) + '.js', {
+                    dataType: 'json',
+                    success: function(race) {
+                        window.setTimeout(function() {
+
+                            window.race = race;
+                            var ret = buildOutData( race.data, race.view.offset );
+                            
+                            _.extend(window.race, ret);
+
+                            initialize();
+                        }, 1);
+                    }
+                });
+
+                app.on('select-tack', function(tack, label) {
+                    if ( !label) return;
+
+                    $('.popover').remove();
+                    
+                    // var id = (10000*Math.random()).toFixed(0);
+                    // var a = $(label).popover({
+                    //     trigger: 'manual',
+                    //     // content: function(item) {
+                    //     //     console.info('tiem', item, this);
+
+                    //     //     return "hi there'";
+                    //     // }
+                    //     content: '<div class="tack_popover" id="popover_'+id+'"></div>',
+                    //     html: true,
+                    //     container: 'body'
+                    // })
+
+                    // a.popover('show')
+                    // .on('shown.bs.tooltip', function() {
+                        
+
+                    // });
+
+
+                    var templ = '<div class="popover fade right in" role="tooltip" style="display:block">\
+                                <div class="arrow"></div>\
+                                <div class="popover-content">\
+                                </div>\
+                                </div>'
+
+                    var pos = $(label).position();
+                    var popover = $(templ).appendTo('body')
+                                    .css({top: pos.top, left: pos.left})
+                                    .show();
+
+
+                    var view = new tackView({tack: tack, data: window.race.data});
+                        popover.find('.popover-content').append(view.el);
+                        view.render();
+                        // console.info('yo', $('popover_'+id), view.el)
+
+                    return; 
+                    //{"loss":-13.114674212993805,"time":"2014-06-21T09:42:12.800Z","board":"U-P","position":[-123.194796667,49.294675]}
+                    
+                    var from = moment(tack.time).subtract('seconds', 30);
+                    var to = moment(tack.time).add('seconds', 45);
+
+                    var range = _.filter(race.data, function(pt) { return (pt.t >= from && pt.t <= to) });
+
+                    var $container = $('#tack').empty();
+
+                    window.tack = tack
+                    window.tackRange = range;
+
+                    var track = new mapView({model: {data:range}, events: false, annotations: false, circles: tack.time});
+                                $container.append(track.el);
+                                track.$el.addClass('tackMap');
+                                track.render();
+
+                    var graph = new tackGraphView(range, tack);
+                                $container.append(graph.el);
+                                graph.render();
+                    
+                });
+
+                var tackView = Backbone.Marionette.LayoutView.extend({
+                    className: 'tack-view',
+                    template: "#tackscreen",
+                    regions: {
+                        map: ".tackMap",
+                        graph: ".tackGraph"
+                    },
+                    templateHelpers: function() {
+                        var a = _.extend({}, {
+                            duration: (this.tack.timing.end - this.tack.timing.start)/1000,
+                            recovery: (this.tack.timing.recovered - this.tack.timing.end)/1000,
+                            press: Math.abs(this.tack.maxTwa - this.tack.recoveryTwa),
+                            through: (this.tack.recoveryHdg - this.tack.entryHdg)
+                        }, this.tack);
+
+                        a.loss = a.loss.toFixed(1);
+                        console.info('a', JSON.stringify(a))
+                        return a;
+                    },
+
+                    initialize: function(options) {
+                        this.data = options.data;
+                        this.tack = options.tack;
+                        this.model = new Backbone.Model({'type':'popover'});
+
+                        var from = moment(this.tack.time).subtract('seconds', 30);
+                        var fromIdx = _.sortedIndex(this.data, {t: from}, function(d) { return d.t; });
+
+                        var to = moment(this.tack.time).add('seconds', 45);
+                        var toIdx = _.sortedIndex(this.data, {t: to}, function(d) { return d.t; });            
+
+                        this.contextData = this.data.slice(fromIdx, toIdx+1);
+                    },
+
+                    onRender: function() {
+                        var view = this;
+
+                        console.info('graph')
+                        
+                        //map
+                        var track = new mapView({model: {data:this.contextData}, events: false, annotations: false, circles: this.tack.time});
+                        this.map.show(track);
+
+                        var graph = new tackGraphView(this.contextData, this.tack);
+                        this.graph.show(graph);
+                    }
+                });
+            });
+        </script>
+
+        <link href="css/race.css" rel="stylesheet" type="text/css">
+    </head>
+    <body>
+        <div id="map_canvas" style="width: 550px; height: 550px; float: left; margin-right: 20px"></div>
+        <div id="graphs">
+            <div id="checkboxes"></div>
+            
+        </div>
+
+        <script type="text/handlebars" id="tackscreen">
+            <h3>Tack Details</h3>
+            <div class="summary">
+                <ul>
+                <li>Loss: {{loss}}ft</li>
+                <li>Duration: {{duration}}s</li>
+                <li>Recovery: {{recovery}}s</li>
+                <li>Press: {{fixed press}} degrees <span style="font-size:80%">{{fixed maxTwa}} - {{fixed recoveryTwa}}</span></li>
+                <li>Through: {{fixed through}} degrees <span style="font-size:80%">{{fixed entryHdg}} --> {{fixed recoveryHdg}}</span></li>
+                </ul>
+            </div>
+            <div class="tackMap">
+            </div>
+            <div class="tackGraph">
+            </div>
+        </script>
+        <!-- <div id="usage">Click and drag to zoom. Double-clicking will zoom you back out. Shift-drag will pan.</div> -->
+
+    </body>
+</html>
