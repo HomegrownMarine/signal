@@ -130,7 +130,9 @@
                     return value.toFixed(precision);
                 });
 
-                $.ajax('races/' + window.location.search.substr(1) + '.js', {
+                //default race to example
+                var race_id = window.location.search.substr(1) || '2014_nas_6';
+                $.ajax('races/' + race_id + '.js', {
                     dataType: 'json',
                     success: function(race) {
                         window.setTimeout(function() {
