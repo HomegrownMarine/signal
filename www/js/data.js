@@ -80,6 +80,7 @@ function buildOutData(dat, offset, calibrate) {
     var calcs = homegrown.calculations;
     var delayedInputs = homegrown.streamingUtilities.delayedInputs;
     var derivitive = homegrown.streamingUtilities.derivitive;
+    var average = homegrown.streamingUtilities.average;
 
     //each of these methods is applied to each stream of
     //data, and the results incorporated into the data.
@@ -96,6 +97,10 @@ function buildOutData(dat, offset, calibrate) {
         delayedInputs(calcs.tws),
         delayedInputs(calcs.twa),
         delayedInputs(calcs.twd),
+        delayedInputs(calcs.gws),
+        delayedInputs(calcs.gwd),
+        delayedInputs(calcs.set),
+        delayedInputs(calcs.drift),
         delayedInputs(calcs.vmg),
         delayedInputs(function targetSpeed(tws, twa) {
             return polars.targetSpeed(tws, Math.abs(twa) <= 90);
@@ -115,6 +120,13 @@ function buildOutData(dat, offset, calibrate) {
         //TODO: Fourier transform
         //TODO: rolling averages
 
+        average('tws_20', 'tws', 20),
+        average('gws_20', 'gws', 20),
+
+        average('twd_20', 'twd', 20),
+        average('gwd_20', 'gwd', 20),
+
+        average('set_20', 'set', 20),
 
         function abses(args) {
             if ('awa' in args) {
@@ -134,6 +146,15 @@ function buildOutData(dat, offset, calibrate) {
         if ('t' in pt) {
             pt.ot = pt.t;
             pt.t = new Date((pt.t + offset) * 1000);
+        }
+
+        // testing calibration approaches here
+        if ( 'hdg' in pt) {
+            pt.hdg = pt.hdg + 0;
+        }
+
+        if ( 'speed' in pt ) {
+            pt.speed = pt.speed * 1.05;
         }
 
         _.each(xforms, function(xform) {

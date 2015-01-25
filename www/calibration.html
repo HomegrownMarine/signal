@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Race Replay</title>
+        <meta charset="UTF-8">
+        <script src="js/lib.js"></script>
+
+        <script>
+            if ( typeof window.console === 'undefined' ) {
+                window.console = {
+                    info: function() {}
+                }
+            }
+
+            var app = _.extend({}, Backbone.Events);
+            
+            var less = { 
+                    env: 'development',
+                    errorReporting: 'console' 
+                };
+
+        </script>
+
+        <script src="js/data.js"></script>
+        <script src="js/graph.js"></script>
+        <script src="js/map.js"></script>
+
+        <script>
+        
+            var metrics = [{'metric':'tws_20', 'group':'wind'},
+                           {'metric':'gws_20', 'group':'wind'},
+                           {'metric':'twd', 'group':'twd'},
+                           {'metric':'gwd', 'group':'twd'},
+                           {'metric':'twd_20', 'group':'twd'},
+                           {'metric':'gwd_20', 'group':'twd'},
+                           {'metric':'set_20', 'group':'angle'},
+                           {'metric':'drift', 'group':'speed'},
+                           {'metric':'sog', 'group':'speed'},
+                           {'metric':'speed', 'group':'speed'},
+                           {'metric':'hdg', 'group':'heading'},
+                           {'metric':'cog', 'group':'heading'}
+                          ];
+
+            var configs = {
+                'wind': {showX: true},
+                'percent': {rangeY: [90, 110]},
+                'angle': {invertY: true}
+            }
+
+            var graphs = [];
+            
+            function initialize() {
+                showGraphs();
+            }
+
+            function showGraphs() {
+
+                var keys = _.map(metrics, function(n) { return n.metric; });
+ 
+                _.each(graphs, function(graph) { 
+                    graph.remove();
+                });
+                graphs = [];
+
+                graphs = _(metrics)
+                            .filter(function(m){ return _.contains(keys, m.metric)})
+                            .groupBy(function(m) { return m.group })
+                            .map( function(metrics, name) {
+                                var graph = new graphView({race: window.race, series: _.pluck(metrics, 'metric'), id: name+'_graph'}, configs[name]);
+                                $('#graphs').append(graph.el);
+                                graph.render();
+                                return graph;
+                            }).valueOf();
+            }                
+              
+            //load data  
+            $(function() {
+                Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
+                    return Handlebars.compile(rawTemplate);
+                };
+
+                Handlebars.registerHelper('fixed', function(value, precision) {
+                    if (!_.isNumber(value)) {
+                        return "NaN";
+                    }
+                    precision = _.isNumber(precision)? precision: 1;
+                    return value.toFixed(precision);
+                });
+
+                //default race to example
+                var race_id = window.location.search.substr(1) || '2014_nas_6';
+                $.ajax('races/' + race_id + '.js', {
+                    dataType: 'json',
+                    success: function(race) {
+                        window.setTimeout(function() {
+
+                            window.race = race;
+                            var ret = buildOutData( race.data, race.view.offset );
+                            
+                            _.extend(window.race, ret);
+
+                            initialize();
+                        }, 1);
+                    }
+                });
+
+            });
+        </script>
+
+        <link href="css/race.css" rel="stylesheet" type="text/css">
+        <style>
+        #wind_graph,
+        #twd_graph {
+            height: 250px;
+        }
+        </style>
+    </head>
+    <body>
+        <div id="graphs" style="width:100%; margin:0">            
+        </div>
+    </body>
+</html>

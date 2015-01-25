@@ -34809,16 +34809,29 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
         return degrees * Math.PI / 180;
     };
 
+    var lawOfCosines = function(a, b, gamma) {
+        return Math.sqrt(a * a + b * b - 2 * b * a * Math.cos(rad(Math.abs(gamma))));
+    };
+
     var calcs = {
         tws: function tws(speed, awa, aws) {
             //TODO: heel compensation
-            return Math.sqrt(speed * speed + aws * aws - 2 * aws * speed * Math.cos(rad(Math.abs(awa))));
+            return lawOfCosines(speed, aws, awa);
         },
 
         twa: function twa(speed, awa, tws) {
             var angle = deg(Math.asin(speed * Math.sin(rad(Math.abs(awa))) / tws)) + Math.abs(awa);
             if (awa < 0) angle *= -1;
             return angle;
+        },
+
+        gws: function gws(sog, awa, aws) {
+            return lawOfCosines(sog, aws, awa);
+        },
+
+        gwd: function gwd(sog, cog, awa, gws) {
+            var gwa = calcs.twa(sog, awa, gws);
+            return (cog + gwa + 360) % 360;
         },
 
         vmg: function vmg(speed, twa) {
@@ -34878,18 +34891,47 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
             return Math.asin(Math.sin(d/R) * Math.sin(rad(b2-b1))) * R;
         },
 
-        set: function set(sog, cog) {
+        set: function set(speed, hdg, sog, cog) {
+            //GM: TODO: understand 90 deg offset.
+            //convert cog and hdg to radians, with north right
+            hdg = rad(90.0 - hdg);
+            cog = rad(90.0 - cog);
 
+            //break out x and y components of current vector
+            var current_x = sog * Math.cos(cog) - speed * Math.cos(hdg);
+            var current_y = sog * Math.sin(cog) - speed * Math.sin(hdg);
+
+            //set is the angle of the current vector (note we special case pure North or South)
+            var _set = 0;
+            if ( current_x === 0 ) {
+                _set = curr_y < 0? 180: 0;
+            }
+            else {
+                //normalize 0 - 360
+                _set = (90.0 - deg(Math.atan2(current_y, current_x)) + 360) % 360;
+            }
+            return _set;
         },
 
-        drift: function drift(sog, cog) {
+        drift: function drift(speed, hdg, sog, cog) {
+            //GM: TODO: understand 90 deg offset.
+            //convert cog and hdg to radians, with north right
+            hdg = rad(90.0 - hdg);
+            cog = rad(90.0 - cog);
 
+            //break out x and y components of current vector
+            var current_x = sog * Math.cos(cog) - speed * Math.cos(hdg);
+            var current_y = sog * Math.sin(cog) - speed * Math.sin(hdg);
+
+            //drift is the magnitude of the current vector
+            var _drift = Math.sqrt(current_x * current_x + current_y * current_y);
+            return _drift;
         }
     };
 
     
     if (typeof exports != 'undefined') {
-        exports = calcs;
+        exports.calcs = calcs;
     } else if (typeof module !== 'undefined' && module.exports) {
         module.exports = calcs;
     } else {
@@ -34898,10 +34940,15 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
         }
         homegrown.calculations = calcs;
     }
-})();;(function(_) {
+})();
+;(function() {
     "use strict";
+    var _;
 
-    if( typeof _ == 'undefined' && typeof require == 'function' ) {
+    if ( typeof window != 'undefined' ) {
+        _ = window._;
+    }
+    else if( typeof require == 'function' ) {
         _ = require('lodash');
     }
 
@@ -35091,12 +35138,13 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
                 }
 
                 if (lastBoard != board) {
-                    //TODO: object with start time, end time, and board.
-                    maneuvers.push({
-                        board: board,
-                        start: lastBoardStart,
-                        end: data[i].t
-                    });
+                    if ( lastBoard !== null ) {
+                        maneuvers.push({
+                            board: lastBoard,
+                            start: lastBoardStart,
+                            end: data[i].t
+                        });
+                    }
                     lastBoard = board;
                     lastBoardStart = data[i].t;
                 }
@@ -35165,19 +35213,23 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
     };
 
     if (typeof exports != 'undefined') {
-        exports = maneuverUtilities;
+        exports.maneuvers = maneuverUtilities;
     } else if (typeof module != 'undefined' && module.exports) {
-        module.exports = maneuverUtilities;
+        module.exports.maneuvers = maneuverUtilities;
     } else {
         if ( typeof homegrown == 'undefined' ) {
             window.homegrown = {};
         }
         homegrown.maneuvers = maneuverUtilities;
     }
-})(_);;(function(_) {
+})();;(function() {
     "use strict";
+    var _;
 
-    if( typeof _ == 'undefined' && typeof require == 'function' ) {
+    if ( typeof window != 'undefined' ) {
+        _ = window._;
+    }
+    else if ( typeof require == 'function' ) {
         _ = require('lodash');
     }
 
@@ -35228,6 +35280,32 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
                 return result;
             };
         },
+        average: function average(name, metric, size) {
+            var rolling = 0;
+            var counter = 0;
+            var windowX = [];
+
+            return function(args) {
+                var result = null;
+
+                if (metric in args) {
+                    var pos = counter % size;
+                    counter++;
+
+                    if (windowX[pos]) {
+                        rolling -= windowX[pos];
+                    }
+                    rolling += args[metric];
+                    windowX[pos] = args[metric];
+
+                    result = {};
+                    result[name] = rolling / windowX.length;
+                }
+
+                return result;
+            };
+        },
+
         /**
          * Wraps function to allow it to handle streaming inputs.  
          * @param funct - the name of the function will be used to name the return value.  
@@ -35269,16 +35347,16 @@ var __module0__ = (function(__dependency1__, __dependency2__, __dependency3__, _
     };
 
     if (typeof exports != 'undefined') {
-        exports = utilities;
+        exports.utilities = utilities;
     } else if (typeof module !== 'undefined' && module.exports) {
-        module.exports = utilities;
+        module.exports.utilities = utilities;
     } else {
         if ( typeof homegrown == 'undefined' ) {
             window.homegrown = {};
         }
         homegrown.streamingUtilities = utilities;
     }
-})(_);
+})();
 //! moment.js
 //! version : 2.5.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
