@@ -36,6 +36,7 @@
                            {'metric':'speed', 'group':'speed'},
                            {'metric':'targetSpeed', 'group':'speed'}, 
                            {'metric':'hdg', 'group':'heading'},
+                           {'metric':'cog', 'group':'heading'},
                            {'metric':'aawa', 'group':'angle', 'transform':function(val) { return Math.abs(val) }},
                            {'metric':'atwa', 'group':'angle', 'transform':function(val) { return Math.abs(val) }},
                            {'metric':'targetAngle', 'group':'angle'}, 
@@ -132,20 +133,33 @@
 
                 //default race to example
                 var race_id = window.location.search.substr(1) || '2014_nas_6';
-                $.ajax('races/' + race_id + '.js', {
-                    dataType: 'json',
-                    success: function(race) {
-                        window.setTimeout(function() {
+                
+                var racesPromise = $.ajax('races/', {
+                    dataType: 'json'
+                }).promise();
 
-                            window.race = race;
-                            var ret = buildOutData( race.data, race.view.offset );
-                            
-                            _.extend(window.race, ret);
 
-                            initialize();
-                        }, 1);
-                    }
-                });
+                var raceDataPromise = $.ajax('/races/' + race_id, {
+                    dataType: 'json'
+                }).promise();
+
+                Promise.all([racesPromise, raceDataPromise]).then(function(results) {
+                        var races = results[0];
+                        var raceData = results[1];
+
+                        var race = window.race = _.find(races, function(r) {
+                            return r.id = race_id;
+                        });
+
+                        race.data = raceData;
+                        var start = moment(race.date+' '+race.startTime, "YYYYMMDD HH:mm");
+
+                        var ret = buildOutData( race.data, start.unix() );
+                        
+                        _.extend(window.race, ret);
+
+                        initialize();
+                    });
 
                 app.on('select-tack', function(tack, label) {
                     if ( !label) return;

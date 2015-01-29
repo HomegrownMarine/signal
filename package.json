@@ -1,7 +1,11 @@
 {
   "name": "signal",
   "version": "0.0.1",
-  "dependencies": {},
+  "dependencies": {
+    "express": "^4.11.1",
+    "handlebars": "^2.0.0",
+    "winston": "^0.8.3"
+  },
   "devDependencies": {
     "grunt": "~0.4.1",
     "grunt-contrib-copy": "~0.5.0",
