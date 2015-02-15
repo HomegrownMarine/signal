@@ -6,7 +6,7 @@ module.exports = function(grunt) {
 
     jshint: {
       // define the files to lint
-      files: ['gruntfile.js', 'run.js', 'www/**/*.js'],
+      files: ['gruntfile.js', 'run.js'],
       // configure JSHint (documented at http://www.jshint.com/docs/)
       options: {
         // more options here if you want to override JSHint defaults
@@ -96,7 +96,7 @@ module.exports = function(grunt) {
     },
     watch: {
       files: ['www/js/*.js'],
-      tasks: ['build']
+      tasks: ['concat']
     }
   });
 
