@@ -22,12 +22,9 @@
 
         </script>
 
-        <script src="js/data.js"></script>
-        <script src="js/graph.js"></script>
-        <script src="js/map.js"></script>
+        <script src="js/signal.js"></script>
 
         <script>
-        
             var metrics = [{'metric':'tws', 'group':'wind'},
                            {'metric':'twd', 'group':'twd'},
                            {'metric':'filteredTwd', 'group':'twd'},
@@ -117,6 +114,18 @@
                             }).valueOf();
             }                
               
+            //default race to example
+            var race_id = window.location.search.substr(1) || '2014_nas_6';
+
+            var racesPromise = $.ajax('/races/', {
+                dataType: 'json'
+            }).promise();
+
+
+            var raceDataPromise = $.ajax('/races/' + race_id, {
+                dataType: 'json'
+            }).promise();
+
             //load data  
             $(function() {
                 Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
@@ -131,20 +140,13 @@
                     return value.toFixed(precision);
                 });
 
-                //default race to example
-                var race_id = window.location.search.substr(1) || '2014_nas_6';
                 
-                var racesPromise = $.ajax('races/', {
-                    dataType: 'json'
-                }).promise();
-
-
-                var raceDataPromise = $.ajax('/races/' + race_id, {
-                    dataType: 'json'
-                }).promise();
 
                 Promise.all([racesPromise, raceDataPromise]).then(function(results) {
+                        
                         var races = results[0];
+                        window.g_races = races;
+
                         var raceData = results[1];
 
                         var race = window.race = _.find(races, function(r) {
@@ -153,8 +155,9 @@
 
                         race.data = raceData;
                         var start = moment(race.date+' '+race.startTime, "YYYYMMDD HH:mm");
+                        race.stttt = start;
 
-                        var ret = buildOutData( race.data, start.unix() );
+                        var ret = buildOutData( race.data, start.valueOf() );
                         
                         _.extend(window.race, ret);
 

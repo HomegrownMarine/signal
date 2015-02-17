@@ -142,10 +142,14 @@ function buildOutData(dat, offset, calibrate) {
     ];
 
     //calc missing pieces
-    _.each(dat, function(pt) {
+    var last = new Date().getTime();
+
+
+    for ( var i=0; i < dat.length; i++ ) {
+        var pt = dat[i];
         if ('t' in pt) {
             pt.ot = pt.t;
-            pt.t = new Date((pt.t + offset) * 1000);
+            pt.t = pt.ot*1000 + offset;
         }
 
         // testing calibration approaches here
@@ -156,14 +160,20 @@ function buildOutData(dat, offset, calibrate) {
         if ( 'speed' in pt ) {
             pt.speed = pt.speed * 1.05;
         }
+    
+        for ( var x=0; x < xforms.length; x++ ) {
+            var xform = xforms[x];
 
-        _.each(xforms, function(xform) {
             var result = xform(pt);
             if (result) {
-                _.extend(pt, result);
+                for (var k in result) {
+                    pt[k] = result[k];
+                }
             }
-        });
-    });
+        }
+    }
+    
+    
 
     var maneuvers = homegrown.maneuvers.findManeuvers(dat);
     var tacks = homegrown.maneuvers.analyzeTacks(maneuvers, dat);

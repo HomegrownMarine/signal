@@ -41,7 +41,7 @@ var graphView = Backbone.View.extend({
             }
         }
 
-        console.info(this.legs);
+        // console.info(this.legs);
     },
     render: function() {
         var view = this;
@@ -254,8 +254,10 @@ var graphView = Backbone.View.extend({
         });
 
         this.listenTo(app, 'zoom', function(start, end) {
+            console.info(start, end);
+
             if ( start - allTimeRange[0] != 0 ) start -= 60000
-            if ( end - allTimeRange[1] != 0 ) end = 60000 + end.getTime() //can't add date and int, but can subtract...
+            if ( end - allTimeRange[1] != 0 ) end = 60000 + end //can't add date and int, but can subtract...
             x.domain([start, end]);
 
             //TODO: make efficient

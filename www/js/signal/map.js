@@ -239,7 +239,8 @@ var mapView = Backbone.View.extend({
             boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)")
 
             //TODO: smooth the TWD
-            wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
+            if ( 'twd' in point ) 
+                wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
         });
 
         this.listenTo(app, 'zoom', function(start, end) {
