@@ -454,8 +454,44 @@
 
             var ideal = tack.entryVmg * ((recovered - tack.timing.start) / 1000);
             tack.loss = - 6076.11549 / 3600.0 * (ideal - covered);
+        },
+
+        addClassificationStats: function addClassificationStats(tack, data) {
+            var twsSum = 0;
+            var twsCount = 0;
+
+            for (var j=0; j < tack.timing.start; j++) {
+                if ( 'tws' in data[j] ) {
+                    twsSum += data[j].tws;
+                    twsCount++;
+                }
+            }
+
+            tack.tws = twsSum / twsCount;
         }
     };
+
+    /**
+     * Gets a subset of the data, around the time specified.
+     */
+    function getSliceAroundTime(data, time, before, after) {
+        var from = moment(time).subtract(before, 'seconds');
+        var to = moment(time).add(after, 'seconds');
+
+        return getSliceBetweenTimes(data, from, to);
+    }
+
+    /**
+     * Gets a subset of the data, between the times specified
+     */
+    function getSliceBetweenTimes(data, from, to) {
+        
+        var fromIdx = _.sortedIndex(data, {t: from}, function(d) { return d.t; });
+        var toIdx = _.sortedIndex(data, {t: to}, function(d) { return d.t; });            
+
+        return data.slice(fromIdx, toIdx+1);
+    }
+     
 
     function findManeuvers(data) {
         var maneuvers = [];
@@ -495,23 +531,6 @@
         return maneuvers;
     }
 
-    function getRangeX(data, time, timeBefore, timeAfter) {
-        if ( timeBefore === undefined ) timeBefore = 30;
-        if ( timeAfter === undefined ) timeAfter = 45;
-        var from = moment(time).subtract(timeBefore, 'seconds');
-        var to = moment(time).add(timeAfter, 'seconds');
-
-        return getRange(data, from, to);
-    }
-
-    function getRange(data, from, to) {
-        
-        var fromIdx = _.sortedIndex(data, {t: from}, function(d) { return d.t; });
-        var toIdx = _.sortedIndex(data, {t: to}, function(d) { return d.t; });            
-
-        return data.slice(fromIdx, toIdx+1);
-    }
-
     function analyzeTacks(maneuvers, data) {
         var tacks = [];
 
@@ -523,30 +542,33 @@
                 var centerTime = moment(maneuvers[i].start);
 
                 if ( maneuvers[i-1].board == "PS" )
-                    return;
-                // if (i + 1 < maneuvers.length) {
-                //     var nextTime = moment(maneuvers[i + 1].start).subtract('seconds', 45);
-                //     if (nextTime < centerTime)
-                //         continue
-                // }
+                    continue;
 
-                var range = getRangeX(data, maneuvers[i].start, 30, 120);
+                if (i + 1 < maneuvers.length) {
+                    var nextTime = moment(maneuvers[i + 1].start).subtract(45, 'seconds');
+                    if (nextTime < centerTime)
+                        continue;
+                }
+
+                var range = getSliceAroundTime(data, maneuvers[i].start, 30, 120);
                 
-
                 var tack = {
                     time: centerTime,
                     board: maneuvers[i].board,
                     timing: {},
-                    data: getRangeX(data, maneuvers[i].start)
+                    data: getSliceAroundTime(data, maneuvers[i].start, 30, 60)
                 };
 
+                
                 //process tack, by running steps in this order.
                 tackUtils.findCenter(tack, range);
                 tackUtils.findStart(tack, range);
                 tackUtils.calculateEntrySpeeds(tack, range);
                 tackUtils.findEnd(tack, range);
+                
                 tackUtils.findRecoveryTime(tack, range);
                 tackUtils.findRecoveryMetrics(tack, range);
+                tackUtils.addClassificationStats(tack, range);
 
                 tackUtils.convertIndexesToTimes(tack, range);
                 tackUtils.calculateLoss(tack, range);
@@ -561,7 +583,9 @@
 
     var maneuverUtilities = {
         findManeuvers: findManeuvers,
-        analyzeTacks: analyzeTacks
+        analyzeTacks: analyzeTacks,
+        getSliceAroundTime: getSliceAroundTime,
+        getSliceBetweenTimes: getSliceBetweenTimes
     };
 
     if (typeof exports != 'undefined') {
@@ -1225,7 +1249,7 @@ var mapView = Backbone.View.extend({
         // make the TWD at the start "UP"
         // calculate bounding rect for current track rotated
         // and scale so it fits in current rect
-        var angle = parseInt(refTws(this.model.data)) || 0;
+        var angle = this.model.up || parseInt(refTws(this.model.data)) || 0;
         var refAngle = angle % 180;
         if (refAngle > 90 ) refAngle = 180 - refAngle;
         var t = refAngle * Math.PI / 180;
@@ -1474,32 +1498,27 @@ tagName: 'div',
 
         var zoom = false;
 
+        
         var x = this.x = d3.scale.linear()
             .range([0, width])
             .domain(d3.extent( view.data, function(d) { return d.t } ) );
 
-        function line(data, metric, range, xform, scale) {
-            var cleanData = _.compact(_.map( data, function(d) { if (metric in d) return [d.t, d[metric]] } ));
+        var speedScale = d3.scale.linear()
+            .range([height, 0])
+            .domain([0, 7]);
 
-            var range = range || [height, 0];
-            var scale = scale || (d3.scale.linear()
-                .range(range)
-                .domain(d3.extent( cleanData, function(d) { return d[1] } ) ));
+        var windScale = d3.scale.linear()
+            .range([height-5, 10])
+            .domain([0, 90]);
 
-            if (xform) xform(scale)
-
-            var line = d3.svg.line()
-                .interpolate("linear")
-                .x(function(d) { return x(d[0]); })
-                .y(function(d) { return scale(d[1]); });
-
-            return [line(cleanData), scale];
-        }
-
+        var hdgScale = d3.scale.linear()
+            .range([height, 10])
+            .domain([360,0]);
         
-        //
+        
+        //axis
         var ticks = [];
-        for ( var i = -30; i < 50; i+=10 ) {
+        for ( var i = -30; i < 65; i+=10 ) {
             ticks.push( moment(view.tack.timing.center).add(i, 'seconds') );
         }
 
@@ -1534,152 +1553,64 @@ tagName: 'div',
             )
 
 
-        //critical points
-        svg.append('line')
-            .attr('class', 'timing center')
-            .style('stroke', 'blue')
-            .attr({"x1": x(this.tack.timing.start), "x2": x(this.tack.timing.start), "y1": 0, "y2": height})
-    
-        svg.append('line')
-            .attr('class', 'timing center')
-            .style('stroke', 'blue')
-            .attr({"x1": x(this.tack.timing.end), "x2": x(this.tack.timing.end), "y1": 0, "y2": height})
-        
-        svg.append('line')
-            .attr('class', 'timing center')
-            .style('stroke', '#0a0')
-            .attr({"x1": x(this.tack.timing.recovered), "x2": x(this.tack.timing.recovered), "y1": 0, "y2": height})
 
+        function criticalPoint(point, scale, color, vertical) {
+             var line = svg.append('line')
+                .attr('class', 'timing center')
+                .style('stroke', color);
+                
+            if ( vertical )
+                line.attr({"x1": scale(point), "x2": scale(point), "y1": 0, "y2": height})
+            else
+                line.attr({"x1": 0, "x2": width, "y1": scale(point), "y2": scale(point)});
 
-        //data
-        var speed = line(view.data, 'speed', null, function(scale) { scale.domain([0, 7]) });
-        var vmg = line(view.data, 'vmg', null, function(scale) { scale.domain([0, 7]) });
-
-        var newRange = [
-            Math.min(speed[1].domain()[0], vmg[1].domain()[0]),
-            Math.max(speed[1].domain()[1], vmg[1].domain()[1])
-        ];
-        // speed[1].domain(newRange)
-        // vmg[1].domain(newRange)
-
-        
-        svg.append('line')
-            .attr('class', 'timing center')
-            .attr({"x1": 0, "x2": width, "y1": vmg[1](this.tack.entryVmg), "y2": vmg[1](this.tack.entryVmg)})
-
-        svg.append('path')
-            .attr('class', 'speedLine')
-            .attr('fill', 'none')
-            .style('stroke', 'rgb(153,153,255)')
-            // .style('stroke-width', '.5')
-            .attr('d',  speed[0]);
-
-
-        svg.append('path')
-            .attr('class', 'vmgLine')
-            .attr('fill', 'none')
-            .style('stroke', 'blue')
-            // .style('stroke-width', '.5')
-            .attr('d', vmg[0] );
-
-        var tvmg = line(view.data, 'targetVmg', null, null, vmg[1] );
-        svg.append('path')
-            .attr('class', 'windLine')
-            .attr('fill', 'none')
-            .attr('stroke', 'cyan')
-            .attr('d', tvmg[0] );
-
-        //relational lines
-        ///
-        var lastTWA = null;
-        var lastHDG = null;
-        var lastAWA = null;
-        for ( var i=0; i < view.data.length; i++ ) {
-            if ('atwa' in view.data[i] ) {
-                if (lastTWA === null) lastTWA = view.data[i].atwa;
-
-                var diff = Math.abs(view.data[i].atwa-lastTWA);
-                view.data[i].windDelta = diff;
-
-                lastTWA = view.data[i].atwa;
-            }
-            if ('aawa' in view.data[i] ) {
-                if (lastAWA === null) lastAWA = view.data[i].aawa;
-
-                var diff = Math.abs(view.data[i].aawa-lastAWA);
-                view.data[i].awindDelta = diff;
-
-                lastAWA = view.data[i].aawa;
-            }
-            if ('hdg' in view.data[i] ) {
-                if (lastHDG === null) lastHDG = view.data[i].hdg;
-
-                var diff = Math.abs(view.data[i].hdg-lastHDG);
-                view.data[i].hdgDelta = diff;
-
-                lastHDG = view.data[i].hdg;
-            }
+            return line;
         }
 
-        var wind = line(view.data, 'atwa', [height, height/3], function(scale) { scale.domain( [55, scale.domain()[0]] ); });
-        svg.append('path')
-            .attr('class', 'windLine')
-            .attr('fill', 'none')
-            .attr('stroke', 'red')
-            .attr('d', wind[0] );
+        function pathData(data, metric, scale) {
+            var cleanData = _.compact(_.map( data, function(d) { if (metric in d) return [d.t, d[metric]] } ));
 
-        // svg.append('path')
-        //     .attr('class', 'windLine')
-        //     .attr('fill', 'none')
-        //     .attr('stroke-width', .5)
-        //     .attr('stroke', 'red')
-        //     .attr('d', line(view.data, 'aawa', [height, height/2], function(scale) { scale.domain( wind[1].domain ); })[0] );
+            var line = d3.svg.line()
+                .interpolate("linear")
+                .x(function(d) { return x(d[0]); })
+                .y(function(d) { return scale(d[1]); });
 
-        // svg.append('path')
-        //     .attr('class', 'windLine')
-        //     .attr('fill', 'none')
-        //     .attr('stroke', 'black')
-        //     .attr('stroke-width', .5)
-        //     .attr('d', line(view.data, 'hdg')[0] );
+            return line(cleanData);
+        }
 
-        // var wd = line(view.data, 'windDelta');
-        // svg.append('path')
-        //     .attr('class', 'windDelta')
-        //     .attr('fill', 'none')
-        //     .attr('stroke', 'blue')
-        //     .attr('d', wd[0]);
+        function graph(metric, scale, color, width) {
+            width = width || 1;
 
-        // console.info( _.compact(_.map( view.data, function(d) { if ('windDelta' in d) return d['windDelta'] } )) )
+            return svg.append('path')
+                .attr('class', 'tackLine')
+                .attr('fill', 'none')
+                .style('stroke', color)
+                .style('stroke-width', width)
+                .attr('d',  pathData(view.data, metric, scale));
+        }
 
+        //critical points
+        criticalPoint( this.tack.timing.start, x, 'blue', true);
+        criticalPoint( this.tack.timing.end, x, 'blue', true);
+        criticalPoint( this.tack.timing.recovered, x, '#0a0', true);
 
-        // var awd = line(view.data, 'awa', [height, height/3], function(scale) { scale.domain( [scale.domain()[1], scale.domain()[0]] ); });
-        // svg.append('path')
-        //     .attr('class', 'awindDelta')
-        //     .attr('fill', 'none')
-        //     .attr('stroke', 'orange')
-        //     .attr('d', awd[0]);
+        criticalPoint( this.tack.entryVmg, speedScale, 'black', false);
+        
+        criticalPoint( 0, windScale, 'red', false)
+            .attr('stroke-dasharray','3,3');
+        criticalPoint( 45, windScale, 'red', false)
+            .attr('stroke-dasharray','3,3');
+
+        //lines
+        graph('speed', speedScale, 'rgb(153,153,255)', 1);
+        graph('vmg', speedScale, 'blue', 1);
+        graph('atwa', windScale, 'red', 1);
+        graph('hdg', hdgScale, 'rgb(153,153,153)', .5);
 
         
-
+        // var awd = line(view.data, 'awa', [height, height/3], function(scale) { scale.domain( [scale.domain()[1], scale.domain()[0]] ); });
         // var hd = line(view.data, 'hdgDelta');
-        // svg.append('path')
-        //     .attr('class', 'hdgDelta')
-        //     .attr('fill', 'none')
-        //     .attr('stroke', '#999')
-        //     .attr('d', hd[0]);
-
-        var ta = line(view.data, 'targetAngle', null, null, wind[1]);
-        svg.append('path')
-            .attr('class', 'targetAngle')
-            .attr('fill', 'none')
-            .attr('stroke', 'orange')
-            .attr('d', ta[0]);
-
-        // // console.info( _.compact(_.map( view.data, function(d) { if ('hdgDelta' in d) return d['hdgDelta'] } )) )
-
-        // svg.append('line')
-        //     .attr('class', 'timing center')
-        //     .attr({"x1": 0, "x2": width, "y1": hd[1](0), "y2": hd[1](0)})
+        // var ta = line(view.data, 'targetAngle', null, null, wind[1]);
     }
 });
 
@@ -1698,7 +1629,11 @@ var tackView = Backbone.Marionette.LayoutView.extend({
             through: (this.tack.recoveryHdg - this.tack.entryHdg)
         }, this.tack);
 
-        a.loss = a.loss.toFixed(1);
+        if ( _.isNull(a.loss) )
+            a.loss = "NULL";
+        else
+            a.loss = a.loss.toFixed(1);
+
         return a;
     },
 
@@ -1716,7 +1651,7 @@ var tackView = Backbone.Marionette.LayoutView.extend({
         var view = this;
         
         //map
-        var track = new mapView({model: {data:this.tack.data}, events: false, annotations: false, circles: this.tack.time});
+        var track = new mapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: this.tack.time});
         this.map.show(track);
 
         var graph = new tackGraphView(this.tack.data, this.tack);

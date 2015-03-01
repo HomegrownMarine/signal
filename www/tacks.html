@@ -24,12 +24,10 @@
 
             var run = function(tacks) {
                 var chunks = _(tacks)
-                    // .sortBy('loss')
-                    // .reverse()
-                    .chunk(1)
+                    .sortBy('loss')
+                    .reverse()
+                    .chunk(10)
                     .value();
-
-                console.info('chunks', chunks.length);
                     
                 function doChunk() {
                     var chunk = chunks.shift();
@@ -44,6 +42,8 @@
                             } 
                             catch (e) {
                                 console.error('error', tack);
+                                console.error('error', e);
+
                             }
                         });
 
@@ -75,6 +75,7 @@
         <script type="text/handlebars" id="tackscreen">
             <div class="summary">
                 <ul>
+                <li>Time: {{timing.center}}</li>
                 <li>Loss: {{loss}}ft</li>
                 <li>Duration: {{duration}}s</li>
                 <li>Recovery: {{recovery}}s</li>

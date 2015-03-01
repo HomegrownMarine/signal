@@ -43,7 +43,7 @@ var mapView = Backbone.View.extend({
         // make the TWD at the start "UP"
         // calculate bounding rect for current track rotated
         // and scale so it fits in current rect
-        var angle = parseInt(refTws(this.model.data)) || 0;
+        var angle = this.model.up || parseInt(refTws(this.model.data)) || 0;
         var refAngle = angle % 180;
         if (refAngle > 90 ) refAngle = 180 - refAngle;
         var t = refAngle * Math.PI / 180;
