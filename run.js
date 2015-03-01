@@ -39,7 +39,7 @@ server.get('/', function(req, res) {
             .reverse()
             .groupBy(function(o) { return o.date.slice(0,4); })
             .map(function(races, year) {
-                var regattas = _(races.slice(0,10))
+                var regattas = _(races)
                     .groupBy('regatta')
                     .map(function(races, regatta) {
                         return {name:regatta,  races:_.sortBy(races, 'race')};
@@ -55,14 +55,25 @@ server.get('/', function(req, res) {
     });
 });
 
+//returns current set of data for boat
+server.get('/tacks.js', function(req, res) {
+    res.setHeader("content-type", "application/json");
+    fs.createReadStream("./data/tacks.js").pipe(res);
+});
 
 //returns current set of data for boat
-server.get('/races', function(req, res) {
+server.get('/tacks_1h.js', function(req, res) {
+    res.setHeader("content-type", "application/json");
+    fs.createReadStream("./data/tacks_1h.js").pipe(res);
+});
+
+//returns current set of data for boat
+server.get('/races.js', function(req, res) {
     res.setHeader("content-type", "application/json");
     fs.createReadStream("./data/races.js").pipe(res);
 });
 
-server.get('/races/:race', function(req, res) {
+server.get('/races/:race.js', function(req, res) {
     var race = req.params.race;
     res.setHeader("content-type", "application/json");
     fs.createReadStream("./data/races/"+race+".js").pipe(res);

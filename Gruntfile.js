@@ -29,9 +29,10 @@ module.exports = function(grunt) {
             },
             files: {
                 'jquery.js': 'jquery:main',
-                'lodash.js': 'lodash/dist/lodash.js',
+                'lodash.js': 'lodash:main',
                 'moment.js': 'moment:main',
                 'd3.js': 'd3:main',
+                'async.js': 'async:main',
                 'backbone.js': 'backbone:main',
                 
                 'backbone.wreqr.js': 'backbone.wreqr:main',
@@ -61,7 +62,9 @@ module.exports = function(grunt) {
               'www/js/homegrown-lib/polars.js', 
               'www/js/signal/data.js', 
               'www/js/signal/graph.js', 
-              'www/js/signal/map.js'],
+              'www/js/signal/map.js',
+              'www/js/signal/tackView.js'
+              ],
         dest: 'www/js/signal.js'
       },
       libs: {
@@ -69,6 +72,7 @@ module.exports = function(grunt) {
               'www/js/lib/lodash.js',
               'www/js/lib/moment.js',
               'www/js/lib/d3.js',
+              'www/js/lib/async.js',
               'www/js/lib/backbone.js',
               'www/js/lib/backbone.wreqr.js',
               'www/js/lib/backbone.babysitter.js',
