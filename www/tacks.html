@@ -57,7 +57,7 @@
             //load data  
             $(function() {
                 //default race to example            
-                var racesPromise = $.ajax('/tacks_1h.js', {
+                var racesPromise = $.ajax('/tacks.js', {
                     dataType: 'json'
                 }).then(function(tacks) {
                     run(tacks);
@@ -66,8 +66,11 @@
         </script>
         <link href="css/race.css" rel="stylesheet" type="text/css"> 
         <style type="text/css">
-        .tack-view {
+        div.summary {
             display: inline-block;
+            height: 200px;
+            width: 350px;
+            vertical-align: top;
         }
         </style>
     </head>
@@ -75,7 +78,7 @@
         <script type="text/handlebars" id="tackscreen">
             <div class="summary">
                 <ul>
-                <li>Time: {{timing.center}}</li>
+                <li>Race: {{race_id}}</li>
                 <li>Loss: {{loss}}ft</li>
                 <li>Duration: {{duration}}s</li>
                 <li>Recovery: {{recovery}}s</li>

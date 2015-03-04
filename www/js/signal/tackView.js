@@ -117,9 +117,10 @@ tagName: 'div',
 
         criticalPoint( this.tack.entryVmg, speedScale, 'black', false);
         
-        criticalPoint( 0, windScale, 'red', false)
+        criticalPoint( this.tack.entryHdg, hdgScale, 'rgb(153,153,153)', false)
             .attr('stroke-dasharray','3,3');
-        criticalPoint( 45, windScale, 'red', false)
+        
+        criticalPoint( this.tack.recoveryHdg, hdgScale, 'rgb(153,153,153)', false)
             .attr('stroke-dasharray','3,3');
 
         //lines
@@ -172,7 +173,18 @@ var tackView = Backbone.Marionette.LayoutView.extend({
         var view = this;
         
         //map
-        var track = new mapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: this.tack.time});
+        var refs = _.map([[this.tack.timing.start,this.tack.entryHdg], [this.tack.timing.end,this.tack.recoveryHdg]], function(p) {
+            var time = p[0];
+            var hdg = p[1];
+
+            var pt = view.tack.track[_.sortedIndex(view.tack.track, {t: time}, function(d) { return d.t; })];
+            return {
+                lat: pt.lat,
+                lon: pt.lon,
+                hdg: hdg
+            };
+        });
+        var track = new mapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
         this.map.show(track);
 
         var graph = new tackGraphView(this.tack.data, this.tack);

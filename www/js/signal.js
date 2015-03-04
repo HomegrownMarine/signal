@@ -1213,6 +1213,7 @@ var mapView = Backbone.View.extend({
         this.events = options.events === false ? false: true;
         this.annotations = options.annotations === false ? false: true;
         this.circles = options.circles || null;
+        this.references = options.references || null;
     },
     render: function() {
         var view = this;
@@ -1351,6 +1352,50 @@ var mapView = Backbone.View.extend({
                 .attr('r', '3')
                 .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
                 .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
+                .style('stroke', function(d) { return (d.t - view.circles) == 0?'#f66':'#666'; });
+        }
+
+        function proj(φ1, λ1, hdg) {
+            var d = 1;
+            var R = 3440.06479;
+            var brng = hdg * Math.PI / 180;
+            φ1 = φ1 * Math.PI / 180;
+            λ1 = λ1 * Math.PI / 180;
+            var φ2 = Math.asin( Math.sin(φ1)*Math.cos(d/R) +
+                    Math.cos(φ1)*Math.sin(d/R)*Math.cos(brng) );
+            var λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(d/R)*Math.cos(φ1),
+                         Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
+
+            return [(λ2*180/Math.PI + 360) % 360, (φ2*180/Math.PI + 360) % 360];
+        }
+
+        if ( this.references ) {
+
+            var lines = _.map(this.references, function(ref) {
+                var start = proj(ref.lat, ref.lon, ref.hdg);
+                var s = projection(start);
+                var end = proj(ref.lat, ref.lon, ref.hdg+180);
+                var e = projection(end);
+                return s.concat(e);
+            });
+
+            world.selectAll('line.hdg')
+                .data(lines)
+                .enter().append('line')
+                    .attr('class', 'hdg')
+                    .attr({"x1": function(d) { return d[0]; }, "x2": function(d) { return d[2]; }, "y1": function(d) { return d[1]; }, "y2": function(d) { return d[3]; }})
+                    .style('stroke', '#666')
+                    .style('stroke-width', .25);
+
+            world.selectAll('circle.timing2')
+                .data(this.references)
+            .enter().append("circle")
+                .attr('class', 'timing')
+                .attr('r', '3')
+                .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
+                .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
+                .style('stroke', 'blue')
+                .style('stroke-width', .5);
         }
         
 
@@ -1596,9 +1641,10 @@ tagName: 'div',
 
         criticalPoint( this.tack.entryVmg, speedScale, 'black', false);
         
-        criticalPoint( 0, windScale, 'red', false)
+        criticalPoint( this.tack.entryHdg, hdgScale, 'rgb(153,153,153)', false)
             .attr('stroke-dasharray','3,3');
-        criticalPoint( 45, windScale, 'red', false)
+        
+        criticalPoint( this.tack.recoveryHdg, hdgScale, 'rgb(153,153,153)', false)
             .attr('stroke-dasharray','3,3');
 
         //lines
@@ -1651,7 +1697,18 @@ var tackView = Backbone.Marionette.LayoutView.extend({
         var view = this;
         
         //map
-        var track = new mapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: this.tack.time});
+        var refs = _.map([[this.tack.timing.start,this.tack.entryHdg], [this.tack.timing.end,this.tack.recoveryHdg]], function(p) {
+            var time = p[0];
+            var hdg = p[1];
+
+            var pt = view.tack.track[_.sortedIndex(view.tack.track, {t: time}, function(d) { return d.t; })];
+            return {
+                lat: pt.lat,
+                lon: pt.lon,
+                hdg: hdg
+            };
+        });
+        var track = new mapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
         this.map.show(track);
 
         var graph = new tackGraphView(this.tack.data, this.tack);
