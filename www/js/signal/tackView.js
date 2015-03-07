@@ -127,7 +127,7 @@ tagName: 'div',
         graph('speed', speedScale, 'rgb(153,153,255)', 1);
         graph('vmg', speedScale, 'blue', 1);
         graph('atwa', windScale, 'red', 1);
-        graph('hdg', hdgScale, 'rgb(153,153,153)', .5);
+        graph('hdg', hdgScale, 'rgb(153,153,153)', 0.5);
 
         
         // var awd = line(view.data, 'awa', [height, height/3], function(scale) { scale.domain( [scale.domain()[1], scale.domain()[0]] ); });

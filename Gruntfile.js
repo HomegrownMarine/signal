@@ -6,7 +6,7 @@ module.exports = function(grunt) {
 
     jshint: {
       // define the files to lint
-      files: ['gruntfile.js', 'run.js'],
+      files: ['gruntfile.js', 'run.js', 'www/js/signal/*'],
       // configure JSHint (documented at http://www.jshint.com/docs/)
       options: {
         // more options here if you want to override JSHint defaults
@@ -15,7 +15,8 @@ module.exports = function(grunt) {
           console: true,
           module: true
         },
-        loopfunc: true
+        loopfunc: true,
+        asi: true
       }
     },
     bowercopy: {
@@ -41,6 +42,7 @@ module.exports = function(grunt) {
                 'handlebars.js': 'handlebars:main'
             }
         },
+        //
         homegrown: {
             files: {
                 'www/js/homegrown-lib/polars.js': 'homegrown-polars:main',
@@ -55,7 +57,8 @@ module.exports = function(grunt) {
         separator: ';',
         sourceMap: true
       },
-      local: {
+      //libraries from homegrownmarine (this package and others)
+      homegrown: {
         src: ['www/js/homegrown-lib/calcs.js', 
               'www/js/homegrown-lib/utilities.js', 
               'www/js/homegrown-lib/maneuvers.js', 
@@ -67,6 +70,7 @@ module.exports = function(grunt) {
               ],
         dest: 'www/js/signal.js'
       },
+      //global libraries
       libs: {
         src: ['www/js/lib/jquery.js',
               'www/js/lib/lodash.js',
@@ -96,7 +100,7 @@ module.exports = function(grunt) {
     },
     watch: {
       files: ['www/js/signal/*.js'],
-      tasks: ['concat:local']
+      tasks: ['concat:homegrown', 'jshint']
     }
   });
 

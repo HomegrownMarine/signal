@@ -52,7 +52,7 @@ var mapView = Backbone.View.extend({
         var boundingX = (projectionScale * (b[1][0] - b[0][0]) * Math.cos(t) + projectionScale * (b[1][1] - b[0][1]) * Math.sin(t));
         var boundingY = (projectionScale * (b[1][0] - b[0][0]) * Math.sin(t) + projectionScale * (b[1][1] - b[0][1]) * Math.cos(t));
 
-        var scale = .95 * Math.min( width/boundingX, height/boundingY );
+        var scale = 0.95 * Math.min( width/boundingX, height/boundingY );
 
         var projectionTranslation = [(width - projectionScale*scale * (b[1][0] + b[0][0])) / 2, (height - projectionScale*scale * (b[1][1] + b[0][1])) / 2];
 
@@ -136,8 +136,9 @@ var mapView = Backbone.View.extend({
             .attr('class', 'track')
             .attr('d', trackPath(track))
 
+        // draw circles every 10 seconds, as tick marks on the track
         if ( this.circles ) {
-            var circles = _.filter(this.model.data, function(m) { return (Math.round((m.t - view.circles)/1000) % 10) == 0 });    
+            var circles = _.filter(this.model.data, function(m) { return (Math.round((m.t - view.circles)/1000) % 10) === 0 });    
 
             world.selectAll('circle.timing')
                 .data(circles)
@@ -146,7 +147,7 @@ var mapView = Backbone.View.extend({
                 .attr('r', '3')
                 .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
                 .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
-                .style('stroke', function(d) { return (d.t - view.circles) == 0?'#f66':'#666'; });
+                .style('stroke', function(d) { return (d.t - view.circles) === 0?'#f66':'#666'; });
         }
 
         function proj(φ1, λ1, hdg) {
@@ -179,7 +180,7 @@ var mapView = Backbone.View.extend({
                     .attr('class', 'hdg')
                     .attr({"x1": function(d) { return d[0]; }, "x2": function(d) { return d[2]; }, "y1": function(d) { return d[1]; }, "y2": function(d) { return d[3]; }})
                     .style('stroke', '#666')
-                    .style('stroke-width', .25);
+                    .style('stroke-width', 0.25);
 
             world.selectAll('circle.timing2')
                 .data(this.references)
@@ -189,7 +190,7 @@ var mapView = Backbone.View.extend({
                 .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
                 .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
                 .style('stroke', 'blue')
-                .style('stroke-width', .5);
+                .style('stroke-width', 1);
         }
         
 
@@ -233,7 +234,7 @@ var mapView = Backbone.View.extend({
                             .charge(-50)
                             .size([width, height]);
             force.start();
-            for (var i = 0; i < 50; ++i) force.tick();
+            for (var n = 0; n < 50; ++n) force.tick();
             force.stop();
 
             // console.info('links', _.map())

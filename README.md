@@ -4,9 +4,15 @@ With race data stored as JSON, will graph metrics, associate them with the track
 
 ![](https://raw.githubusercontent.com/HomegrownMarine/signal/master/README/overview.png)
 ![](https://raw.githubusercontent.com/HomegrownMarine/signal/master/README/tack_details.png)
+![](https://raw.githubusercontent.com/HomegrownMarine/signal/master/README/tack_list.png)
 
 ##Installation:
 
+- This assumes that data has been processed by [Homegrown Marine/process/](https://github.com/HomegrownMarine/process)
+
 - install [bower](http://bower.io)
 - run ```bower install```
-- open ```race.html```
+- run ```npm install```
+- run ```grunt build```
+- run ```node run.js```
+- goto http://localhost:8080 or http://localhost:8080/tacks.html
