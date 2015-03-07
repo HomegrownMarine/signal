@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Tacks</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=1320, user-scalable=no">
+        <script src="js/lib.js"></script>
+        <script src="js/signal.js"></script>
+
+        <script>
+            var app = _.extend({}, Backbone.Events);
+
+            Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
+                return Handlebars.compile(rawTemplate);
+            };
+
+            Handlebars.registerHelper('fixed', function(value, precision) {
+                if (!_.isNumber(value)) {
+                    return "NaN";
+                }
+                precision = _.isNumber(precision)? precision: 1;
+                return value.toFixed(precision);
+            });
+
+            var run = function(tacks) {
+                var chunks = _(tacks)
+                    .sortBy('loss')
+                    .reverse()
+                    .chunk(10)
+                    .value();
+                    
+                function doChunk() {
+                    var chunk = chunks.shift();
+                    if ( chunk ) {
+                        var start = new Date().getTime();
+
+                        _.each(chunk, function(tack) {
+                            try {
+                                var view = new tackView({tack: tack});
+                                view.render()
+                                view.$el.appendTo("body");
+                            } 
+                            catch (e) {
+                                console.error('error', tack);
+                                console.error('error', e);
+
+                            }
+                        });
+
+                        console.info('block', chunk.length, new Date().getTime() - start);
+                        window.setTimeout(doChunk, 1);
+                    }
+                };
+                doChunk();
+            };
+
+            //load data  
+            $(function() {
+                //default race to example            
+                var racesPromise = $.ajax('/tacks.js', {
+                    dataType: 'json'
+                }).then(function(tacks) {
+                    run(tacks);
+                });
+            });
+        </script>
+        <link href="css/race.css" rel="stylesheet" type="text/css"> 
+        <style type="text/css">
+        div.summary {
+            display: inline-block;
+            height: 200px;
+            width: 350px;
+            vertical-align: top;
+        }
+        </style>
+    </head>
+    <body>
+        <script type="text/handlebars" id="tackscreen">
+            <div class="summary">
+                <ul>
+                <li>Race: {{race_id}}</li>
+                <li>Loss: {{loss}}ft</li>
+                <li>Duration: {{duration}}s</li>
+                <li>Recovery: {{recovery}}s</li>
+                <li>Press: {{fixed press}} degrees <span style="font-size:80%">{{fixed maxTwa}} - {{fixed recoveryTwa}}</span></li>
+                <li>Through: {{fixed through}} degrees <span style="font-size:80%">{{fixed entryHdg}} --> {{fixed recoveryHdg}}</span></li>
+                </ul>
+            </div>
+            <div class="tackMap">
+            </div>
+            <div class="tackGraph">
+            </div>
+        </script>
+
+    </body>
+</html>

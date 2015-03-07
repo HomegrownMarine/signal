@@ -7,6 +7,7 @@ var mapView = Backbone.View.extend({
         this.events = options.events === false ? false: true;
         this.annotations = options.annotations === false ? false: true;
         this.circles = options.circles || null;
+        this.references = options.references || null;
     },
     render: function() {
         var view = this;
@@ -43,7 +44,7 @@ var mapView = Backbone.View.extend({
         // make the TWD at the start "UP"
         // calculate bounding rect for current track rotated
         // and scale so it fits in current rect
-        var angle = parseInt(refTws(this.model.data)) || 0;
+        var angle = this.model.up || parseInt(refTws(this.model.data)) || 0;
         var refAngle = angle % 180;
         if (refAngle > 90 ) refAngle = 180 - refAngle;
         var t = refAngle * Math.PI / 180;
@@ -51,7 +52,7 @@ var mapView = Backbone.View.extend({
         var boundingX = (projectionScale * (b[1][0] - b[0][0]) * Math.cos(t) + projectionScale * (b[1][1] - b[0][1]) * Math.sin(t));
         var boundingY = (projectionScale * (b[1][0] - b[0][0]) * Math.sin(t) + projectionScale * (b[1][1] - b[0][1]) * Math.cos(t));
 
-        var scale = .95 * Math.min( width/boundingX, height/boundingY );
+        var scale = 0.95 * Math.min( width/boundingX, height/boundingY );
 
         var projectionTranslation = [(width - projectionScale*scale * (b[1][0] + b[0][0])) / 2, (height - projectionScale*scale * (b[1][1] + b[0][1])) / 2];
 
@@ -135,8 +136,9 @@ var mapView = Backbone.View.extend({
             .attr('class', 'track')
             .attr('d', trackPath(track))
 
+        // draw circles every 10 seconds, as tick marks on the track
         if ( this.circles ) {
-            var circles = _.filter(this.model.data, function(m) { return (Math.round((m.t - view.circles)/1000) % 10) == 0 });    
+            var circles = _.filter(this.model.data, function(m) { return (Math.round((m.t - view.circles)/1000) % 10) === 0 });    
 
             world.selectAll('circle.timing')
                 .data(circles)
@@ -145,6 +147,50 @@ var mapView = Backbone.View.extend({
                 .attr('r', '3')
                 .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
                 .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
+                .style('stroke', function(d) { return (d.t - view.circles) === 0?'#f66':'#666'; });
+        }
+
+        function proj(φ1, λ1, hdg) {
+            var d = 1;
+            var R = 3440.06479;
+            var brng = hdg * Math.PI / 180;
+            φ1 = φ1 * Math.PI / 180;
+            λ1 = λ1 * Math.PI / 180;
+            var φ2 = Math.asin( Math.sin(φ1)*Math.cos(d/R) +
+                    Math.cos(φ1)*Math.sin(d/R)*Math.cos(brng) );
+            var λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(d/R)*Math.cos(φ1),
+                         Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
+
+            return [(λ2*180/Math.PI + 360) % 360, (φ2*180/Math.PI + 360) % 360];
+        }
+
+        if ( this.references ) {
+
+            var lines = _.map(this.references, function(ref) {
+                var start = proj(ref.lat, ref.lon, ref.hdg);
+                var s = projection(start);
+                var end = proj(ref.lat, ref.lon, ref.hdg+180);
+                var e = projection(end);
+                return s.concat(e);
+            });
+
+            world.selectAll('line.hdg')
+                .data(lines)
+                .enter().append('line')
+                    .attr('class', 'hdg')
+                    .attr({"x1": function(d) { return d[0]; }, "x2": function(d) { return d[2]; }, "y1": function(d) { return d[1]; }, "y2": function(d) { return d[3]; }})
+                    .style('stroke', '#666')
+                    .style('stroke-width', 0.25);
+
+            world.selectAll('circle.timing2')
+                .data(this.references)
+            .enter().append("circle")
+                .attr('class', 'timing')
+                .attr('r', '3')
+                .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
+                .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
+                .style('stroke', 'blue')
+                .style('stroke-width', 1);
         }
         
 
@@ -188,7 +234,7 @@ var mapView = Backbone.View.extend({
                             .charge(-50)
                             .size([width, height]);
             force.start();
-            for (var i = 0; i < 50; ++i) force.tick();
+            for (var n = 0; n < 50; ++n) force.tick();
             force.stop();
 
             // console.info('links', _.map())
@@ -239,7 +285,8 @@ var mapView = Backbone.View.extend({
             boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)")
 
             //TODO: smooth the TWD
-            wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
+            if ( 'twd' in point ) 
+                wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
         });
 
         this.listenTo(app, 'zoom', function(start, end) {
