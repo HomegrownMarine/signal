@@ -93,7 +93,7 @@
 
             function showGraphs() {
 
-                var keys = ['tws', 'speed', 'targetSpeed', 'atwa', 'targetAngle'];
+                var keys = ['tws', 'speed', 'sog', 'atwa', 'targetAngle'];
                 if (localStorage.race_metrics) {
                     keys = JSON.parse(localStorage.race_metrics);
                 }
@@ -117,17 +117,18 @@
             //default race to example
             var race_id = window.location.search.substr(1) || '2014_nas_6';
 
-            var racesPromise = $.ajax('/races/', {
+            var racesPromise = $.ajax('/races.js', {
                 dataType: 'json'
             }).promise();
 
-
-            var raceDataPromise = $.ajax('/races/' + race_id, {
+            var raceDataPromise = $.ajax('/races/'+race_id+'.js', {
                 dataType: 'json'
             }).promise();
 
             //load data  
             $(function() {
+                
+
                 Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
                     return Handlebars.compile(rawTemplate);
                 };
@@ -150,8 +151,10 @@
                         var raceData = results[1];
 
                         var race = window.race = _.find(races, function(r) {
-                            return r.id = race_id;
+                            return r.id == race_id;
                         });
+
+                        $('h2').text( [race.date, race.regatta, 'Race', race.race].join(' ') );
 
                         race.data = raceData;
                         var start = moment(race.date+' '+race.startTime, "YYYYMMDD HH:mm");
@@ -216,6 +219,7 @@
         <link href="css/race.css" rel="stylesheet" type="text/css">
     </head>
     <body>
+        <h2></h2>
         <div id="map_canvas" style="width: 550px; height: 550px; float: left; margin-right: 20px"></div>
         <div id="graphs">
             <div id="checkboxes"></div>
