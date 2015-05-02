@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Race Replay</title>
+        <title>Calibration</title>
         <meta charset="UTF-8">
-        <script src="js/lib.min.js"></script>
+             <script src="js/lib.js"></script>
+        <script src="js/signal.js"></script>
 
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+        <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+    
         <script>
             if ( typeof window.console === 'undefined' ) {
                 window.console = {
@@ -13,42 +17,110 @@
             }
 
             var app = _.extend({}, Backbone.Events);
-            
-            var less = { 
-                    env: 'development',
-                    errorReporting: 'console' 
-                };
 
-        </script>
+            Handlebars.registerHelper('fixed', function(value, precision) {
+                if (!_.isNumber(value)) {
+                    return "NaN";
+                }
+                precision = _.isNumber(precision)? precision: 1;
+                return value.toFixed(precision);
+            });
 
-        <script src="js/signal.js"></script>
 
-        <script>
-        
-            var metrics = [{'metric':'tws_20', 'group':'wind'},
-                           {'metric':'gws_20', 'group':'wind'},
-                           {'metric':'twd', 'group':'twd'},
-                           {'metric':'gwd', 'group':'twd'},
-                           {'metric':'twd_20', 'group':'twd'},
-                           {'metric':'gwd_20', 'group':'twd'},
-                           {'metric':'set_20', 'group':'angle'},
-                           {'metric':'drift', 'group':'speed'},
-                           {'metric':'sog', 'group':'speed'},
-                           {'metric':'speed', 'group':'speed'},
-                           {'metric':'hdg', 'group':'heading'},
-                           {'metric':'cog', 'group':'heading'}
-                          ];
+            //default race to example
+            var race_id = window.location.search.substr(1) || '2014_nas_6';
 
-            var configs = {
-                'wind': {showX: true},
-                'percent': {rangeY: [90, 110]},
-                'angle': {invertY: true}
+            var racesPromise = $.ajax('/races.js', {
+                dataType: 'json'
+            }).promise();
+
+            var raceDataPromise = $.ajax('/races/'+race_id+'.js', {
+                dataType: 'json'
+            }).promise();
+
+
+            //load data  
+            $(function() {
+                Promise.all([racesPromise, raceDataPromise]).then(function(results) {                        
+                    var races = results[0];
+                    window.g_races = races;
+
+                    var raceData = results[1];
+
+                    var race = window.race = _.find(races, function(r) {
+                        return r.id == race_id;
+                    });
+
+                    race.data = raceData;
+                    
+
+                    $('h2').text( [race.date, race.regatta, 'Race', race.race].join(' ') );
+
+                    showResults();
+                });
+
+                initialize();
+            });
+
+            function initialize() {
+                $('.awa_slider').slider({
+                    max: 20,
+                    min: -20,
+                    step: .1,
+                    value: awa_offset
+                })
+                .on( "slide", function( event, ui ) {
+                    $('.awa_label').text(ui.value);
+                })
+                .on( "slidechange", function( event, ui ) {
+                    awa_offset = ui.value;
+                    showResults();
+                });
+
+                $('.awa_label').text(awa_offset);
+
+                $('.aws_slider').slider({
+                    max: 1.5,
+                    min: .5,
+                    step: .05,
+                    value: aws_offset
+                })
+                .on( "slide", function( event, ui ) {
+                    $('.aws_label').text(ui.value);
+                })
+                .on( "slidechange", function( event, ui ) {
+                    aws_offset = ui.value;
+                    showResults();
+                });
+
+                $('.aws_label').text(aws_offset);
             }
 
-            var graphs = [];
-            
-            function initialize() {
-                showGraphs();
+            function showResults() {
+                var graphs = $('.graphs').html('').css('opacity', .25);
+
+                var start = moment(race.date+' '+race.startTime, "YYYYMMDD HH:mm");
+                race.stttt = start;
+
+                var workingData = _.cloneDeep(race.data);
+
+                var ret = buildOutData( workingData, start.valueOf() );
+                
+                
+                _.each(ret.tacks, function(tack) {
+                    // try {
+                        var graph = new calibrateTackView(tack.data, tack);
+                        graph.render();
+                        graph.$el.appendTo(graphs);
+                    // } 
+                    // catch (e) {
+                    //     console.error('error', tack);
+                    //     console.error('error', e);
+
+                    // }
+                });
+
+                graphs.css('opacity', 1);
             }
 
             function showGraphs() {
@@ -69,40 +141,8 @@
                                 graph.render();
                                 return graph;
                             }).valueOf();
-            }                
-              
-            //load data  
-            $(function() {
-                Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
-                    return Handlebars.compile(rawTemplate);
-                };
+            }
 
-                Handlebars.registerHelper('fixed', function(value, precision) {
-                    if (!_.isNumber(value)) {
-                        return "NaN";
-                    }
-                    precision = _.isNumber(precision)? precision: 1;
-                    return value.toFixed(precision);
-                });
-
-                //default race to example
-                var race_id = window.location.search.substr(1) || '2014_nas_6';
-                $.ajax('races/' + race_id + '.js', {
-                    dataType: 'json',
-                    success: function(race) {
-                        window.setTimeout(function() {
-
-                            window.race = race;
-                            var ret = buildOutData( race.data, race.view.offset );
-                            
-                            _.extend(window.race, ret);
-
-                            initialize();
-                        }, 1);
-                    }
-                });
-
-            });
         </script>
 
         <link href="css/race.css" rel="stylesheet" type="text/css">
@@ -111,10 +151,54 @@
         #twd_graph {
             height: 250px;
         }
+
+        .awa_slider, .aws_slider {
+            width: 240px;
+        }
+
+        .awa_label, .aws_label {
+            color: blue;
+        }
+
+        label {
+            font-weight: bold;
+        }
         </style>
     </head>
     <body>
-        <div id="graphs" style="width:100%; margin:0">            
+        <h2></h2>
+        
+        <div><label><abbr title="Apparent Wind Angle">AWA</abbr> Offset:</label> <span class="awa_label"></span></div>
+        <div class="awa_slider"></div>
+        
+        <div><label><abbr title="Apparent Wind Speed">AWS</abbr> Offset:</label> <span class="aws_label"></span></div>
+        <div class="aws_slider"></div>
+
+        <br><br>
+        <div>
+            <span style="color: red">awa</span>
+            <span style="color: blue">gwd</span>
+            <span style="color: grey">aws</span>
+            <span style="color: black">gws</span>
         </div>
+        <div class="graphs"></div>
+
+
+        <script type="text/handlebars" id="tackscreen">
+            <div class="summary">
+                <ul>
+                <li>Race: {{race_id}}</li>
+                <li>Loss: {{loss}}ft</li>
+                <li>Duration: {{duration}}s</li>
+                <li>Recovery: {{recovery}}s</li>
+                <li>Press: {{fixed press}} degrees <span style="font-size:80%">{{fixed maxTwa}} - {{fixed recoveryTwa}}</span></li>
+                <li>Through: {{fixed through}} degrees <span style="font-size:80%">{{fixed entryHdg}} --> {{fixed recoveryHdg}}</span></li>
+                </ul>
+            </div>
+            <div class="tackMap">
+            </div>
+            <div class="tackGraph">
+            </div>
+        </script>
     </body>
 </html>

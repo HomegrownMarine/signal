@@ -812,7 +812,8 @@ function smooth(data, window) {
 }
 
 maneuvers = [];
-var awa_offset = 5;
+var aws_offset = 1
+var awa_offset = 0;
 
 function refTws(dat, time) {
     var first10 = _.compact(_.pluck(dat.slice(0, 600), 'twd'));
@@ -836,15 +837,6 @@ function buildOutData(dat, offset, calibrate) {
     //each of these methods is applied to each stream of
     //data, and the results incorporated into the data.
     var xforms = [
-        function calibrate(args) {
-            if ( 'awa' in args ) {
-                args.awa -= awa_offset;
-                if (args.awa > 180) {
-                    args.awa = -1 * (360 - args.awa);
-                }
-            }
-        },
-        
         delayedInputs(calcs.tws),
         delayedInputs(calcs.twa),
         delayedInputs(calcs.twd),
@@ -871,13 +863,13 @@ function buildOutData(dat, offset, calibrate) {
         //TODO: Fourier transform
         //TODO: rolling averages
 
-        average('tws_20', 'tws', 20),
-        average('gws_20', 'gws', 20),
+        // average('tws_20', 'tws', 20),
+        average('gws_20', 'gws', 5),
 
-        average('twd_20', 'twd', 20),
-        average('gwd_20', 'gwd', 20),
+        // average('twd_20', 'twd', 20),
+        average('gwd_20', 'gwd', 5),
 
-        average('set_20', 'set', 20),
+        // average('set_20', 'set', 20),
 
         function abses(args) {
             if ('awa' in args) {
@@ -891,6 +883,21 @@ function buildOutData(dat, offset, calibrate) {
         derivitive('acceleration', 'speed', (NM_TO_FT / 3600)),
         derivitive('rot', 'hdg')
     ];
+
+    if ( calibrate ) {
+        xforms.unshift( function calibrate(args) {
+            if ( 'awa' in args ) {
+                args.awa -= awa_offset;
+                if (args.awa > 180) {
+                    args.awa = -1 * (360 - args.awa);
+                }
+            }
+            if ( 'aws' in args ) {
+                args.aws *= aws_offset;
+            }
+        });
+    }
+    
 
     //calc missing pieces
     var last = new Date().getTime();
@@ -1663,6 +1670,131 @@ tagName: 'div',
         graph('vmg', speedScale, 'blue', 1);
         graph('atwa', windScale, 'red', 1);
         graph('hdg', hdgScale, 'rgb(153,153,153)', 0.5);
+
+        
+        // var awd = line(view.data, 'awa', [height, height/3], function(scale) { scale.domain( [scale.domain()[1], scale.domain()[0]] ); });
+        // var hd = line(view.data, 'hdgDelta');
+        // var ta = line(view.data, 'targetAngle', null, null, wind[1]);
+    }
+});
+
+var calibrateTackView = Backbone.View.extend({
+tagName: 'div',
+    className: "tackGraph",
+    initialize: function(data, tack) {
+        this.data = data;
+        this.tack = tack;
+    },
+    render: function() {
+        var view = this;
+        
+        var margin = {top: 15, right: 10, bottom: 5, left: 10};
+
+        if ( this.showX ) {
+            margin.top = 30;
+        }
+
+        var width = 200 - margin.left - margin.right,
+            height = 200 - margin.top - margin.bottom;
+
+        var zoom = false;
+
+        
+        var x = this.x = d3.scale.linear()
+            .range([0, width])
+            .domain(d3.extent( view.data, function(d) { return d.t } ) );
+
+        var speedScale = d3.scale.linear()
+            .range([height, 0])
+            .domain([0, 30]);
+
+        var windScale = d3.scale.linear()
+            .range([height-5, 10])
+            .domain([0, 90]);
+
+        var hdgScale = d3.scale.linear()
+            .range([height, 10])
+            .domain([360,0]);
+        
+        
+        //axis
+        var ticks = [];
+        for ( var i = -30; i < 65; i+=10 ) {
+            ticks.push( moment(view.tack.timing.center).add(i, 'seconds') );
+        }
+
+        var xAxis = d3.svg.axis()
+            .scale(x)
+            .orient("top")
+            .tickValues( ticks )
+            .tickSize(3)
+            .tickFormat(function(d) { return parseInt(moment(view.tack.timing.center).diff(d)/-1000); })
+
+
+        var svg = this.svg = d3.select(this.el).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+
+        svg.append("g")
+            .attr("class", "x axis")
+            // .attr("transform", "translate(0," + height + ")")
+            .call(xAxis);
+
+        svg.append("g")         
+            .attr("class", "grid")
+            // .attr("transform", "translate(0," + margin.top + ")")
+            .call( d3.svg.axis()
+                .scale(x)
+                .orient("top")
+                .tickValues( ticks )
+                .tickSize(-height, 0, 0)
+                .tickFormat("")
+            )
+
+
+
+        function criticalPoint(point, scale, color, vertical) {
+             var line = svg.append('line')
+                .attr('class', 'timing center')
+                .style('stroke', color);
+                
+            if ( vertical )
+                line.attr({"x1": scale(point), "x2": scale(point), "y1": 0, "y2": height})
+            else
+                line.attr({"x1": 0, "x2": width, "y1": scale(point), "y2": scale(point)});
+
+            return line;
+        }
+
+        function pathData(data, metric, scale) {
+            var cleanData = _.compact(_.map( data, function(d) { if (metric in d) return [d.t, d[metric]] } ));
+
+            var line = d3.svg.line()
+                .interpolate("linear")
+                .x(function(d) { return x(d[0]); })
+                .y(function(d) { return scale(d[1]); });
+
+            return line(cleanData);
+        }
+
+        function graph(metric, scale, color, width) {
+            width = width || 1;
+
+            return svg.append('path')
+                .attr('class', 'tackLine')
+                .attr('fill', 'none')
+                .style('stroke', color)
+                .style('stroke-width', width)
+                .attr('d',  pathData(view.data, metric, scale));
+        }
+
+        //lines
+        graph('aawa', windScale, 'red', 1);
+        graph('gwd_20', hdgScale, 'blue', 1);
+        graph('aws', speedScale, 'grey', 1);
+        graph('gws_20', speedScale, 'black', 1);
 
         
         // var awd = line(view.data, 'awa', [height, height/3], function(scale) { scale.domain( [scale.domain()[1], scale.domain()[0]] ); });

@@ -61,7 +61,8 @@ function smooth(data, window) {
 }
 
 maneuvers = [];
-var awa_offset = 5;
+var aws_offset = 1
+var awa_offset = 0;
 
 function refTws(dat, time) {
     var first10 = _.compact(_.pluck(dat.slice(0, 600), 'twd'));
@@ -85,15 +86,6 @@ function buildOutData(dat, offset, calibrate) {
     //each of these methods is applied to each stream of
     //data, and the results incorporated into the data.
     var xforms = [
-        function calibrate(args) {
-            if ( 'awa' in args ) {
-                args.awa -= awa_offset;
-                if (args.awa > 180) {
-                    args.awa = -1 * (360 - args.awa);
-                }
-            }
-        },
-        
         delayedInputs(calcs.tws),
         delayedInputs(calcs.twa),
         delayedInputs(calcs.twd),
@@ -120,13 +112,13 @@ function buildOutData(dat, offset, calibrate) {
         //TODO: Fourier transform
         //TODO: rolling averages
 
-        average('tws_20', 'tws', 20),
-        average('gws_20', 'gws', 20),
+        // average('tws_20', 'tws', 20),
+        average('gws_20', 'gws', 5),
 
-        average('twd_20', 'twd', 20),
-        average('gwd_20', 'gwd', 20),
+        // average('twd_20', 'twd', 20),
+        average('gwd_20', 'gwd', 5),
 
-        average('set_20', 'set', 20),
+        // average('set_20', 'set', 20),
 
         function abses(args) {
             if ('awa' in args) {
@@ -140,6 +132,21 @@ function buildOutData(dat, offset, calibrate) {
         derivitive('acceleration', 'speed', (NM_TO_FT / 3600)),
         derivitive('rot', 'hdg')
     ];
+
+    if ( calibrate ) {
+        xforms.unshift( function calibrate(args) {
+            if ( 'awa' in args ) {
+                args.awa -= awa_offset;
+                if (args.awa > 180) {
+                    args.awa = -1 * (360 - args.awa);
+                }
+            }
+            if ( 'aws' in args ) {
+                args.aws *= aws_offset;
+            }
+        });
+    }
+    
 
     //calc missing pieces
     var last = new Date().getTime();
