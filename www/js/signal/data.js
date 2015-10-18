@@ -67,9 +67,13 @@ var awa_offset = 0;
 function refTws(dat, time) {
     var first10 = _.compact(_.pluck(dat.slice(0, 600), 'twd'));
     
-    return _.reduce(first10, function(sum, num) {
-        return sum + num;
-    }) / (1.0 * first10.length);
+    var sinComp = 0, cosComp = 0;
+    _.each(first10, function(angle) {
+        sinComp += Math.sin(rad(angle));
+        cosComp += Math.cos(rad(angle));
+    });
+
+    return (360+deg(Math.atan2(sinComp/first10.length, cosComp/first10.length)))%360;
 }
 
 var g = 0;
