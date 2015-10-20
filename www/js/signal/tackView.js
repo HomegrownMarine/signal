@@ -115,18 +115,23 @@ tagName: 'div',
         criticalPoint( this.tack.timing.end, x, 'blue', true);
         criticalPoint( this.tack.timing.recovered, x, '#0a0', true);
 
-        criticalPoint( this.tack.entryVmg, speedScale, 'black', false);
         
-        criticalPoint( this.tack.entryHdg, hdgScale, 'rgb(153,153,153)', false)
-            .attr('stroke-dasharray','3,3');
+        criticalPoint( this.tack.entrySpeed, speedScale, 'blue', false);
         
-        criticalPoint( this.tack.recoveryHdg, hdgScale, 'rgb(153,153,153)', false)
-            .attr('stroke-dasharray','3,3');
+        // criticalPoint( this.tack.entryHdg, hdgScale, 'rgb(153,153,153)', false)
+        //     .attr('stroke-dasharray','3,3');
+        
+        // criticalPoint( this.tack.recoveryHdg, hdgScale, 'rgb(153,153,153)', false)
+        //     .attr('stroke-dasharray','3,3');
 
         //lines
-        graph('speed', speedScale, 'rgb(153,153,255)', 1);
+        graph('speed', speedScale, 'rgb(153,153,255)', 0.5);
+        graph('targetSpeed', speedScale, 'rgb(153,153,255)', 0.5).attr('stroke-dasharray', '4,1');
         graph('vmg', speedScale, 'blue', 1);
+        
         graph('atwa', windScale, 'red', 1);
+        graph('targetAngle', windScale, 'red', 1).attr('stroke-dasharray', '4,1')
+
         graph('hdg', hdgScale, 'rgb(153,153,153)', 0.5);
 
         
@@ -273,7 +278,7 @@ var tackView = Backbone.Marionette.LayoutView.extend({
             duration: (this.tack.timing.end - this.tack.timing.start)/1000,
             recovery: (this.tack.timing.recovered - this.tack.timing.end)/1000,
             press: Math.abs(this.tack.maxTwa - this.tack.recoveryTwa),
-            through: (this.tack.recoveryHdg - this.tack.entryHdg)
+            through: Math.min( (this.tack.recoveryHdg - this.tack.entryHdg + 360)%360, (this.tack.entryHdg - this.tack.recoveryHdg + 360)%360)
         }, this.tack);
 
         if ( _.isNull(a.loss) )
@@ -291,7 +296,7 @@ var tackView = Backbone.Marionette.LayoutView.extend({
             options.tack.timing[key] = moment(options.tack.timing[key]);
         });
 
-        this.model = new Backbone.Model({'type':'popover'});           
+        this.model = new Backbone.Model({'type':'popover'});
     },
 
     onRender: function() {
@@ -309,7 +314,7 @@ var tackView = Backbone.Marionette.LayoutView.extend({
                 hdg: hdg
             };
         });
-        var track = new mapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
+        var track = new tackMapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
         this.map.show(track);
 
         var graph = new tackGraphView(this.tack.data, this.tack);

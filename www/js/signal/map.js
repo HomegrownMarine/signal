@@ -8,25 +8,10 @@ var mapView = Backbone.View.extend({
         this.annotations = options.annotations === false ? false: true;
         this.circles = options.circles || null;
         this.references = options.references || null;
+
+        this.margin = {top: 0, right: 0, bottom: 0, left: 0};
     },
-    render: function() {
-        var view = this;
-        
-        var margin = {top: 0, right: 0, bottom: 0, left: 0};
-        var width = this.$el.width() - margin.left - margin.right,
-            height = this.$el.height() - margin.top - margin.bottom;
-
-        width = width || 200;
-        height = height || 200;
-
-        // get extent of track, and make GEOJSON object
-        var allTimeRange = d3.extent(this.model.data, function(d) { return d.t; });
-        var lonExtent = d3.extent(this.model.data, function(d) { return d.lon; });
-        var latExtent = d3.extent(this.model.data, function(d) { return d.lat; });
-
-        var track = {type: "LineString", coordinates: _.compact( _.map(this.model.data, function(d) { return [d.lon, d.lat] }) ) };
-
-
+    getProjection: function(track, angle, width, height) {
         //create 'unit' projection
         var projection = d3.geo.mercator()
             .scale(1)
@@ -41,10 +26,8 @@ var mapView = Backbone.View.extend({
         var projectionScale = 1 / Math.max((b[1][0] - b[0][0]) / width, (b[1][1] - b[0][1]) / height);
 
 
-        // make the TWD at the start "UP"
         // calculate bounding rect for current track rotated
-        // and scale so it fits in current rect
-        var angle = this.model.up || parseInt(refTws(this.model.data)) || 0;
+        // and scale so it fits in current rect        
         var refAngle = angle % 180;
         if (refAngle > 90 ) refAngle = 180 - refAngle;
         var t = refAngle * Math.PI / 180;
@@ -58,28 +41,16 @@ var mapView = Backbone.View.extend({
 
         projection
             .scale(projectionScale*scale)
-            .translate(projectionTranslation)
+            .translate(projectionTranslation);
 
-
-        // svg container
-        var svg = this.svg = d3.select(this.el).append("svg")
-            .attr("width", width + margin.left + margin.right)
-            .attr("height", height + margin.top + margin.bottom)
-
-        // background
-        svg.append("g")
-          .append("rect")
-            .attr("class", "water")
-            .attr("height", height)
-            .attr("width", width);
-
-        
-        if ( this.annotations ) {
-            svg.append("g")
+        return [projection, trackPath];
+    },
+    renderAnnotations: function(svg, angle) {
+        var annotationsLayer= svg.append("g")
                 .attr('class', 'annotations')
 
             // wind
-            var wind = svg.select('g.annotations')
+            var wind = annotationsLayer
                         .append("g")
                             .attr('transform', 'translate(500, 50)')
                         .append("g")
@@ -96,15 +67,15 @@ var mapView = Backbone.View.extend({
                 .attr({"x1": 0, "x2": 4, "y1": -10, "y2": -6});
 
             // compass
-            var compass = svg.select('g.annotations')
+            var compass = annotationsLayer
                             .append('g')
                                 .attr('transform', 'translate(50, 50)')
                             .append("g")
                                 .attr("class", "compass")
                                 .attr('transform', 'rotate(-'+angle+')');
 
-            compass.append("circle")
-                .attr("r", 10) 
+            // compass.append("circle")
+            //     .attr("r", 20) 
 
             compass.append("path")
                 .attr('class', 'ew')
@@ -124,77 +95,8 @@ var mapView = Backbone.View.extend({
             // compass.append("circle")
             //     .attr('class', 'ew')
             //     .attr("r", 4) 
-        }
-
-        // track
-        var world = svg.append('g')
-            .attr('class', 'world')        
-            .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" })
-        
-          
-        world.append('path')
-            .attr('class', 'track')
-            .attr('d', trackPath(track))
-
-        // draw circles every 10 seconds, as tick marks on the track
-        if ( this.circles ) {
-            var circles = _.filter(this.model.data, function(m) { return (Math.round((m.t - view.circles)/1000) % 10) === 0 });    
-
-            world.selectAll('circle.timing')
-                .data(circles)
-              .enter().append("circle")
-                .attr('class', 'timing')
-                .attr('r', '3')
-                .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
-                .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
-                .style('stroke', function(d) { return (d.t - view.circles) === 0?'#f66':'#666'; });
-        }
-
-        function proj(φ1, λ1, hdg) {
-            var d = 1;
-            var R = 3440.06479;
-            var brng = hdg * Math.PI / 180;
-            φ1 = φ1 * Math.PI / 180;
-            λ1 = λ1 * Math.PI / 180;
-            var φ2 = Math.asin( Math.sin(φ1)*Math.cos(d/R) +
-                    Math.cos(φ1)*Math.sin(d/R)*Math.cos(brng) );
-            var λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(d/R)*Math.cos(φ1),
-                         Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
-
-            return [(λ2*180/Math.PI + 360) % 360, (φ2*180/Math.PI + 360) % 360];
-        }
-
-        if ( this.references ) {
-
-            var lines = _.map(this.references, function(ref) {
-                var start = proj(ref.lat, ref.lon, ref.hdg);
-                var s = projection(start);
-                var end = proj(ref.lat, ref.lon, ref.hdg+180);
-                var e = projection(end);
-                return s.concat(e);
-            });
-
-            world.selectAll('line.hdg')
-                .data(lines)
-                .enter().append('line')
-                    .attr('class', 'hdg')
-                    .attr({"x1": function(d) { return d[0]; }, "x2": function(d) { return d[2]; }, "y1": function(d) { return d[1]; }, "y2": function(d) { return d[3]; }})
-                    .style('stroke', '#666')
-                    .style('stroke-width', 0.25);
-
-            world.selectAll('circle.timing2')
-                .data(this.references)
-            .enter().append("circle")
-                .attr('class', 'timing')
-                .attr('r', '3')
-                .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
-                .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
-                .style('stroke', 'blue')
-                .style('stroke-width', 1);
-        }
-        
-
-
+    },
+    renderTackLabels: function(world, view, projection, angle, width, height) {
         var labels = world.append('g')
             .attr('class', 'labels');
           
@@ -262,6 +164,266 @@ var mapView = Backbone.View.extend({
 
             app.trigger('select-tack', view.model.tacks[0]);
         }
+    },
+    render: function() {
+        var view = this;
+        
+        var margin = this.margin;
+        var width = this.$el.width() - margin.left - margin.right,
+            height = this.$el.height() - margin.top - margin.bottom;
+
+        width = width || 200;
+        height = height || 200;
+
+        // get extent of track, and make GEOJSON object
+        var allTimeRange = d3.extent(this.model.data, function(d) { return d.t; });
+        var lonExtent = d3.extent(this.model.data, function(d) { return d.lon; });
+        var latExtent = d3.extent(this.model.data, function(d) { return d.lat; });
+
+        var track = {type: "LineString", coordinates: _.compact( _.map(this.model.data, function(d) { return [d.lon, d.lat] }) ) };
+        // make the TWD at the start "UP"
+        var angle = this.model.up || parseInt(refTws(this.model.data)) || 0;
+        var res = this.getProjection(track, angle, width, height);
+        var projection = res[0];
+        var trackPath = res[1];
+        
+
+
+        // svg container
+        var svg = this.svg = d3.select(this.el).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+
+        // background
+        svg.append("g")
+          .append("rect")
+            .attr("class", "water")
+            .attr("height", height + margin.top + margin.bottom)
+            .attr("width", width + margin.left + margin.right);
+
+        
+        if ( this.annotations ) {
+            this.renderAnnotations(svg, angle);
+        }
+
+        // track
+        var world = svg.append('g')
+            .attr('class', 'world')        
+            .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" })
+        
+          
+        world.append('path')
+            .attr('class', 'track')
+            .attr('d', trackPath(track))
+
+
+        this.renderTackLabels(world, view, projection, angle, width, height);
+
+        
+        //create boat and put at start of race
+        var start = projection(track.coordinates[0]);
+        var hdg = view.model.data[0].hdg || 0;
+        var boat = world.append('path')
+            .attr('d', 'M0,-80 C60,0 50,50 35,80 L-35,80 C-50,50 -60,0 0, -80')
+            .attr('class', 'boat')
+            .attr('transform', 'translate('+start[0]+','+start[1]+')scale(.06)rotate('+(hdg)+',-10,-10)')
+
+        if ( !this.events ) {
+            return;
+        }
+
+        // //listen to app events
+        this.listenTo(app, 'scrub', function(time) {
+            var index = _.sortedIndex( view.model.data, {t: time}, function(point) { return point.t; } );
+            var point = view.model.data[index];
+
+            var coord = projection([point.lon, point.lat]);
+            
+            boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)")
+
+            //TODO: smooth the TWD
+            if ( 'twd' in point ) 
+                wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
+        });
+
+        this.listenTo(app, 'zoom', function(start, end) {
+            // if ( start - allTimeRange[0] != 0 ) start -= 60000
+            // if ( end - allTimeRange[1] != 0 ) end = 60000 + end.getTime() //can't add date and int, but can subtract...
+            
+            // var trackPart = {type: "LineString", coordinates: _.compact( _.map(this.model.data, function(d) { if(d.t >= start && d.t <= end) return [d.lon, d.lat] }) ) };
+            
+            // var center = trackPath.centroid(trackPart);
+            // var partBounds = trackPath.bounds(trackPart);
+            // var bounds = trackPath.bounds(track);
+
+            // var scale = Math.max( Math.abs((bounds[1][0] - bounds[0][0])/(partBounds[1][0] - partBounds[0][0])), Math.abs((bounds[1][1] - bounds[0][1])/(partBounds[0][1] - partBounds[1][1])) );
+            // console.info('scale', scale, (bounds[1][0] - bounds[0][0]), (partBounds[1][0] - partBounds[0][0]), (bounds[1][1] - bounds[0][1]), (partBounds[0][1] - partBounds[1][1]));
+
+            // center[0] = (width/2 - center[0]) / scale;
+            // center[1] = (height/2 - center[1]) / scale;
+            // svg.selectAll('.world')
+            //     .attr('transform', "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")translate("+center[0]+","+center[1]+")scale("+scale+")" )
+
+            
+        });
+    },
+    onSelect: function(range) {
+
+    },
+    onScrub: function(x) {
+       // this.boat.setTime(x / 1000 - this.model.view.offset);
+    }
+});
+
+
+
+var variance = 0; 
+
+var tackMapView = Backbone.View.extend({
+    className: 'map',
+    initialize: function(options) {
+        this.events = options.events === false ? false: true;
+        this.annotations = options.annotations === false ? false: true;
+        this.circles = options.circles || null;
+        this.references = options.references || null;
+
+        this.margin = {top: 0, right: 0, bottom: 0, left: 0};
+    },
+    getProjection: function() {
+
+    },
+    render: function() {
+        var view = this;
+        
+        var margin = this.margin;
+        var width = this.$el.width() - margin.left - margin.right,
+            height = this.$el.height() - margin.top - margin.bottom;
+
+        width = width || 200;
+        height = height || 200;
+
+        // get extent of track, and make GEOJSON object
+        var allTimeRange = d3.extent(this.model.data, function(d) { return d.t; });
+        var lonExtent = d3.extent(this.model.data, function(d) { return d.lon; });
+        var latExtent = d3.extent(this.model.data, function(d) { return d.lat; });
+
+        var track = {type: "LineString", coordinates: _.compact( _.map(this.model.data, function(d) { return [d.lon, d.lat] }) ) };
+
+
+        //create 'unit' projection
+        var projection = d3.geo.mercator()
+            .scale(1)
+            .translate([0, 0]);
+
+        var trackPath = d3.geo.path()
+            .projection(projection)
+            .pointRadius(3.5);
+
+        //use unit projection to calculate scale factor for track
+        var b = trackPath.bounds(track);
+        var projectionScale = 1 / Math.max((b[1][0] - b[0][0]) / width, (b[1][1] - b[0][1]) / height);
+
+
+        // make the TWD at the start "UP"
+        // calculate bounding rect for current track rotated
+        // and scale so it fits in current rect
+        var angle = this.model.up || parseInt(refTws(this.model.data)) || 0;
+        var refAngle = angle % 180;
+        if (refAngle > 90 ) refAngle = 180 - refAngle;
+        var t = refAngle * Math.PI / 180;
+
+        var boundingX = (projectionScale * (b[1][0] - b[0][0]) * Math.cos(t) + projectionScale * (b[1][1] - b[0][1]) * Math.sin(t));
+        var boundingY = (projectionScale * (b[1][0] - b[0][0]) * Math.sin(t) + projectionScale * (b[1][1] - b[0][1]) * Math.cos(t));
+
+        var scale = 0.95 * Math.min( width/boundingX, height/boundingY );
+
+        var projectionTranslation = [(width - projectionScale*scale * (b[1][0] + b[0][0])) / 2, (height - projectionScale*scale * (b[1][1] + b[0][1])) / 2];
+
+        projection
+            .scale(projectionScale*scale)
+            .translate(projectionTranslation)
+
+
+        // svg container
+        var svg = this.svg = d3.select(this.el).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+
+        // background
+        svg.append("g")
+          .append("rect")
+            .attr("class", "water")
+            .attr("height", height + margin.top + margin.bottom)
+            .attr("width", width + margin.left + margin.right);
+
+
+        // track
+        var world = svg.append('g')
+            .attr('class', 'world')        
+            .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" })
+        
+          
+        world.append('path')
+            .attr('class', 'track')
+            .attr('d', trackPath(track))
+
+        // draw circles every 10 seconds, as tick marks on the track
+        if ( this.circles ) {
+            var circles = _.filter(this.model.data, function(m) { return (Math.round((m.t - view.circles)/1000) % 1) === 0 });    
+
+            world.selectAll('circle.timing')
+                .data(circles)
+              .enter().append("circle")
+                .attr('class', 'timing')
+                .attr('r', '1.5')
+                .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
+                .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
+                .style('stroke', function(d) { return (d.t - view.circles) === 0?'#f66':'#666'; });
+        }
+
+        function proj(φ1, λ1, hdg) {
+            var d = 1;
+            var R = 3440.06479;
+            var brng = hdg * Math.PI / 180;
+            φ1 = φ1 * Math.PI / 180;
+            λ1 = λ1 * Math.PI / 180;
+            var φ2 = Math.asin( Math.sin(φ1)*Math.cos(d/R) +
+                    Math.cos(φ1)*Math.sin(d/R)*Math.cos(brng) );
+            var λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(d/R)*Math.cos(φ1),
+                         Math.cos(d/R)-Math.sin(φ1)*Math.sin(φ2));
+
+            return [(λ2*180/Math.PI + 360) % 360, (φ2*180/Math.PI + 360) % 360];
+        }
+
+        if ( this.references ) {
+
+            var lines = _.map(this.references, function(ref) {
+                var start = proj(ref.lat, ref.lon, ref.hdg);
+                var s = projection(start);
+                var end = proj(ref.lat, ref.lon, ref.hdg+180);
+                var e = projection(end);
+                return s.concat(e);
+            });
+
+            world.selectAll('line.hdg')
+                .data(lines)
+                .enter().append('line')
+                    .attr('class', 'hdg')
+                    .attr({"x1": function(d) { return d[0]; }, "x2": function(d) { return d[2]; }, "y1": function(d) { return d[1]; }, "y2": function(d) { return d[3]; }})
+                    .style('stroke', '#666')
+                    .style('stroke-width', 0.25);
+
+            world.selectAll('circle.timing2')
+                .data(this.references)
+            .enter().append("circle")
+                .attr('class', 'timing')
+                .attr('r', '3')
+                .attr('cx', function(d) { return projection([d.lon, d.lat])[0] })
+                .attr('cy', function(d) { return projection([d.lon, d.lat])[1] })
+                .style('stroke', 'blue')
+                .style('stroke-width', 1);
+        }
+
 
         //create boat and put at start of race
         var start = projection(track.coordinates[0]);
@@ -317,3 +479,4 @@ var mapView = Backbone.View.extend({
        // this.boat.setTime(x / 1000 - this.model.view.offset);
     }
 });
+
