@@ -33,7 +33,7 @@ body {
   stroke-width: 0;
 }
 path.highlight {
-  stroke-width: 2;
+  stroke-width: 2.5;
   fill: none;
 }
 path.highlight.port {

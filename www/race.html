@@ -27,7 +27,8 @@
         <script>
             var metrics = [{'metric':'tws', 'group':'wind'},
                            {'metric':'twd', 'group':'twd'},
-                           {'metric':'gwd', 'group':'gwd'},
+                           {'metric':'gwd', 'group':'twd'},
+                           {'metric':'performance', 'group':'percent'},
                            {'metric':'sog', 'group':'speed'}, 
                            {'metric':'speed', 'group':'speed'},
                            {'metric':'targetSpeed', 'group':'speed'}, 
@@ -43,7 +44,7 @@
 
             var configs = {
                 'wind': {showX: true},
-                'percent': {rangeY: [90, 110]},
+                'percent': {rangeY: [80, 120]},
                 'angle': {invertY: true}
             }
 
@@ -92,7 +93,7 @@
 
             function showGraphs() {
 
-                var keys = ['tws', 'twd', 'gwd','speed', 'targetSpeed', 'atwa', 'targetAngle'];
+                var keys = ['tws', 'performance', 'speed', 'targetSpeed', 'atwa', 'targetAngle'];
                 // if (localStorage.race_metrics) {
                 //     keys = JSON.parse(localStorage.race_metrics);
                 // }

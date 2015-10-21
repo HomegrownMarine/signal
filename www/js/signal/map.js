@@ -235,8 +235,34 @@ var mapView = Backbone.View.extend({
             .attr('class', 'world')        
             .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" });
         
+
+        var perfScale = d3.scale.linear()
+            .domain([80, 100, 120])
+            .range(["red", "white", "green"]);
+
+        var polars = [];
+        var sum=0, count=0;
+        var startTime = allTimeRange[0];
         
-        var tracks = getSegmentedTracks(this.model.data, this.model.maneuvers);
+        for (var i=0; i < this.model.data.length; i++) {
+            if (this.model.data[i].t > startTime + 20000) {
+                polars.push({
+                    performance: sum/count,
+                    color: perfScale(sum/count),
+                    start: startTime,
+                    end: this.model.data[i].t
+                });
+                sum = 0; count = 0;
+                startTime = this.model.data[i].t;
+            }
+
+            if ( 'performance' in this.model.data[i] ) {
+                sum += this.model.data[i].performance;
+                count++;
+            }
+        }
+        
+        var tracks = getSegmentedTracks(this.model.data, polars);
         _.each(tracks, function(seg) {
             seg.track = {type: "LineString", coordinates: _.compact( _.map(seg.data, function(d) { return [d.lon, d.lat] }) )};
         });
@@ -245,10 +271,14 @@ var mapView = Backbone.View.extend({
               .data(tracks)
             .enter()
               .append("path")
-                .attr('class', function(d) { return 'highlight ' + d.className; })
+                // .attr('class', function(d) { return 'highlight ' + d.className; })
+                .attr('class', 'highlight')
+                .style('stroke', function(d) { return d.color; })
                 .attr("d", function(d) { return trackPath(d.track) });
 
 
+        
+        //track
         world.append('path')
             .attr('class', 'track')
             .attr('d', trackPath(track))
