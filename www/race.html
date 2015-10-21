@@ -163,6 +163,28 @@
                         
                         _.extend(window.race, ret);
 
+                        var BOARD_COLORS = {
+                            'D-P': '#F2E9E9',
+                            'D-S': '#E9F2E9',
+                            'U-S': '#F5FFF5',
+                            'U-P': '#FFF5F5',
+                            'PS': '#fcfcfc'
+                        };
+
+                        _.each(window.race.maneuvers, function(d) {
+                            d.color = BOARD_COLORS[d.board];
+                            
+                            var c = ['board'];
+
+                            if ( d.board.charAt(0) == 'D' )
+                                c.push('downwind');
+
+                            if (d.board.charAt(2) == 'P') c.push('port');
+                            if (d.board.charAt(2) == 'S') c.push('starboard');
+
+                            d.className = c.join(' ');
+                        });
+
                         initialize();
                     });
 
@@ -186,7 +208,7 @@
         <h2></h2>
         <div id="map_canvas" style="width: 550px; height: 550px; float: left; margin-right: 20px">
 
-            
+
         </div>
         
 

@@ -1,11 +1,3 @@
-
-var BOARD_COLORS = {
-    'D-P': '#F2E9E9',
-    'D-S': '#E9F2E9',
-    'U-S': '#F5FFF5',
-    'U-P': '#FFF5F5',
-    'PS': '#fcfcfc'
-};
    
 var graphView = Backbone.View.extend({
     tagName: 'div',
@@ -24,9 +16,6 @@ var graphView = Backbone.View.extend({
 
         //set up background color blocks
         this.maneuvers = options.race.maneuvers;
-        _.each(this.maneuvers, function(m) {
-            m.color = BOARD_COLORS[m.board];
-        });
         this.legs = [];
 
         for ( var i=0; i < options.race.maneuvers.length-1; i++ ) {

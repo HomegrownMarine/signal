@@ -1,6 +1,30 @@
 
 var variance = 0; 
 
+function getSegmentedTracks(track, segments) {
+    var segs = _.clone(segments, true);
+
+    _.each(segs, function(seg) {
+        seg.data = [];
+    });
+
+    var j = 0;
+    for ( var i=0; i < track.length; i++ ) {
+        if ( track[i].t < segs[j].start ) {
+            continue;
+        }
+        else if ( track[i].t < segs[j].end ) {
+            segs[j].data.push(track[i]);
+        }
+        else {
+            j++;
+            if (j >= segs.length) break;
+        }
+    }
+
+    return segs;
+}
+
 var mapView = Backbone.View.extend({
     className: 'map',
     initialize: function(options) {
@@ -209,9 +233,22 @@ var mapView = Backbone.View.extend({
         // track
         var world = svg.append('g')
             .attr('class', 'world')        
-            .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" })
+            .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" });
         
-          
+        
+        var tracks = getSegmentedTracks(this.model.data, this.model.maneuvers);
+        _.each(tracks, function(seg) {
+            seg.track = {type: "LineString", coordinates: _.compact( _.map(seg.data, function(d) { return [d.lon, d.lat] }) )};
+        });
+
+        world.selectAll("path.highlight")
+              .data(tracks)
+            .enter()
+              .append("path")
+                .attr('class', function(d) { return 'highlight ' + d.className; })
+                .attr("d", function(d) { return trackPath(d.track) });
+
+
         world.append('path')
             .attr('class', 'track')
             .attr('d', trackPath(track))
@@ -273,19 +310,8 @@ var mapView = Backbone.View.extend({
 
     },
     renderScrubber: function(width, height) {
-        var BOARD_COLORS = {
-            'D-P': '#F2E9E9',
-            'D-S': '#E9F2E9',
-            'U-S': '#F5FFF5',
-            'U-P': '#FFF5F5',
-            'PS': '#fcfcfc'
-        };
-
         //set up background color blocks
         var maneuvers = this.model.maneuvers;
-        _.each(maneuvers, function(m) {
-            m.color = BOARD_COLORS[m.board];
-        });
         this.legs = [];
 
         for ( var i=0; i < maneuvers.length-1; i++ ) {

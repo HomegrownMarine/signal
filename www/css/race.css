@@ -32,17 +32,27 @@ body {
 .grid path {
   stroke-width: 0;
 }
+path.highlight {
+  stroke-width: 2;
+  fill: none;
+}
+path.highlight.port {
+  stroke: #e44c4c;
+}
+path.highlight.starboard {
+  stroke: none;
+}
 rect.port {
-  fill: #aef1a5;
-}
-rect.port.downwind {
-  fill: #2db01a;
-}
-rect.starboard {
   fill: #f1a5a5;
 }
-rect.starboard.downwind {
+rect.port.downwind {
   fill: #b01a1a;
+}
+rect.starboard {
+  fill: #aef1a5;
+}
+rect.starboard.downwind {
+  fill: #2db01a;
 }
 rect.water {
   fill: #0087cd;
