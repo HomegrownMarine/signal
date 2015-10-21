@@ -1,7 +1,10 @@
 body { font-family: helvetica; }
 
 @trackColor: #666;
-@waterColor: #4C9DE4;
+@waterColor: #0087cd;
+
+@port: #5fe44c;
+@starboard: #e44c4c;
 
 #graphs {
     margin-left: 580px;
@@ -44,6 +47,20 @@ body { font-family: helvetica; }
     path {
         stroke-width: 0;
     }
+}
+
+rect.port {
+    fill: lighten(@port, 20%);
+}
+rect.port.downwind {
+    fill: darken(@port, 20%);
+}
+
+rect.starboard {
+    fill: lighten(@starboard, 20%);
+}
+rect.starboard.downwind {
+    fill: darken(@starboard, 20%);
 }
 
 rect.water {

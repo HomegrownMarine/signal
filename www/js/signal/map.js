@@ -242,8 +242,8 @@ var mapView = Backbone.View.extend({
             boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)")
 
             //TODO: smooth the TWD
-            if ( 'twd' in point ) 
-                wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
+            // if ( 'twd' in point ) 
+            //     wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
         });
 
         this.listenTo(app, 'zoom', function(start, end) {
@@ -266,6 +266,106 @@ var mapView = Backbone.View.extend({
 
             
         });
+
+        
+
+        this.renderScrubber(width, height);
+
+    },
+    renderScrubber: function(width, height) {
+        var BOARD_COLORS = {
+            'D-P': '#F2E9E9',
+            'D-S': '#E9F2E9',
+            'U-S': '#F5FFF5',
+            'U-P': '#FFF5F5',
+            'PS': '#fcfcfc'
+        };
+
+        //set up background color blocks
+        var maneuvers = this.model.maneuvers;
+        _.each(maneuvers, function(m) {
+            m.color = BOARD_COLORS[m.board];
+        });
+        this.legs = [];
+
+        for ( var i=0; i < maneuvers.length-1; i++ ) {
+            //mark changes from UW to DW
+            if ( maneuvers[i].board.charAt(0) != maneuvers[i+1].board.charAt(0) ) {
+                //TODO: start and end here.
+                var leg = {
+                    leg: this.legs.length+2,
+                    start: maneuvers[i+1].start
+                };
+
+                if ( this.legs.length > 0 && (leg.start - _.last(this.legs).start) < 60000 ) {
+                    this.legs.pop(); //last leg is too short, remove it
+                }
+
+                this.legs.push(leg);
+            }
+        }
+
+
+        var allTimeRange = [this.model.data[0].t, _.last(this.model.data).t];
+        var x = d3.scale.linear()
+            .range([0, width - 80])
+            .domain(allTimeRange);
+
+        var xAxis = d3.svg.axis()
+            .scale(x)
+            .orient("bottom")
+            .tickSize(20)
+            .tickValues(_.pluck(this.legs, 'start'))
+            .tickFormat(function(d) { return moment(d).format("h:mm"); });
+
+
+
+        var classes = function(d) {
+            var c = ['board'];
+
+            if ( d.board.charAt(0) == 'D' )
+                c.push('downwind');
+
+            if (d.board.charAt(2) == 'P') c.push('port');
+            if (d.board.charAt(2) == 'S') c.push('starboard');
+
+            return c.join(' ');
+        }
+
+
+        var scrubSvg = d3.select(this.el).append("svg")
+            .attr("width", width)
+            .attr("height", 60)
+        .append("g")
+            .attr("transform", "translate(40, 10)");
+
+        
+
+        
+        scrubSvg.append("g")
+            .attr("class", "boards")
+            .selectAll("rect.board")
+                .data(maneuvers)
+            .enter().append("rect")
+                .attr('class', classes) 
+                .attr("x", function(d) { return x(d.start); })
+                .attr("width", function(d) { return x(d.end) - x(d.start); })
+                .attr("y", 0)
+                .attr("height", 10)
+                // .attr("fill", function(d) { return d.color; });
+
+        scrubSvg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0,-10)")
+                .call(xAxis)
+                
+
+        scrubSvg.on('mousemove', function(a,b,c,d) {
+            var pos = d3.mouse(this);
+            var time = x.invert(pos[0]);
+            app.trigger('scrub', new Date(time), pos);
+        });
+
     },
     onSelect: function(range) {
 
@@ -445,10 +545,6 @@ var tackMapView = Backbone.View.extend({
             var coord = projection([point.lon, point.lat]);
             
             boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)")
-
-            //TODO: smooth the TWD
-            if ( 'twd' in point ) 
-                wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
         });
 
         this.listenTo(app, 'zoom', function(start, end) {
