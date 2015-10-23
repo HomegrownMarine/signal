@@ -35,6 +35,7 @@ module.exports = function(grunt) {
                 'd3.js': 'd3:main',
                 'async.js': 'async:main',
                 'backbone.js': 'backbone:main',
+                'chroma.js': 'chroma-js:main',
                 
                 'backbone.wreqr.js': 'backbone.wreqr:main',
                 'backbone.babysitter.js': 'backbone.babysitter:main',
@@ -76,6 +77,7 @@ module.exports = function(grunt) {
               'www/js/lib/lodash.js',
               'www/js/lib/moment.js',
               'www/js/lib/d3.js',
+              'www/js/lib/chroma.js',
               'www/js/lib/async.js',
               'www/js/lib/backbone.js',
               'www/js/lib/backbone.wreqr.js',
@@ -98,9 +100,21 @@ module.exports = function(grunt) {
         }
       }
     },
+
+    less: {
+      options: {
+        sourceMap: true
+      },
+      prod: {
+      files: {
+        "www/css/race.css": "www/css/race.less"
+      }
+      }
+    },
+
     watch: {
-      files: ['www/js/signal/*.js'],
-      tasks: ['concat:homegrown', 'jshint']
+      files: ['www/js/signal/*.js','www/css/*.less'],
+      tasks: ['concat:homegrown', 'jshint', 'less']
     }
   });
 
@@ -109,6 +123,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-contrib-concat');
+  grunt.loadNpmTasks('grunt-contrib-less');
   grunt.loadNpmTasks('grunt-bowercopy');
 
   // Default task(s).

@@ -37,7 +37,7 @@
                         _.each(chunk, function(tack) {
                             try {
                                 var view = new tackView({tack: tack});
-                                view.render()
+                                view.render();
                                 view.$el.appendTo("body");
                             } 
                             catch (e) {

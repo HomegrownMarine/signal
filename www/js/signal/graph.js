@@ -1,11 +1,3 @@
-
-var BOARD_COLORS = {
-    'D-P': '#F2E9E9',
-    'D-S': '#E9F2E9',
-    'U-S': '#F5FFF5',
-    'U-P': '#FFF5F5',
-    'PS': '#fcfcfc'
-};
    
 var graphView = Backbone.View.extend({
     tagName: 'div',
@@ -23,21 +15,23 @@ var graphView = Backbone.View.extend({
         }
 
         //set up background color blocks
-        var max_time = options.race.data[options.race.data.length-1].t;
-        
         this.maneuvers = options.race.maneuvers;
-        _.each(this.maneuvers, function(m) {
-            m.color = BOARD_COLORS[m.board];
-        });
         this.legs = [];
 
-        for (var i=0; i < options.race.maneuvers.length-1; i++ ) {
+        for ( var i=0; i < options.race.maneuvers.length-1; i++ ) {
             //mark changes from UW to DW
             if ( options.race.maneuvers[i].board.charAt(0) != options.race.maneuvers[i+1].board.charAt(0) ) {
-                this.legs.push({
+                //TODO: start and end here.
+                var leg = {
                     leg: this.legs.length+2,
                     start: options.race.maneuvers[i+1].start
-                });
+                };
+
+                if ( this.legs.length > 0 && (leg.start - _.last(this.legs).start) < 60000 ) {
+                    this.legs.pop(); //last leg is too short, remove it
+                }
+
+                this.legs.push(leg);
             }
         }
 

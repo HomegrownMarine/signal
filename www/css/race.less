@@ -1,7 +1,10 @@
 body { font-family: helvetica; }
 
 @trackColor: #666;
-@waterColor: #4C9DE4;
+@waterColor: #0087cd;
+
+@port: #e44c4c;
+@starboard: #5fe44c;
 
 #graphs {
     margin-left: 580px;
@@ -43,6 +46,34 @@ body { font-family: helvetica; }
     }
     path {
         stroke-width: 0;
+    }
+}
+
+path.highlight {
+    stroke-width: 2;
+    fill: none;
+
+    &.port {
+        stroke: @port;
+    }
+    &.starboard {
+        stroke: none;
+    }
+}
+
+
+rect.port {
+    fill: lighten(@port, 20%);
+
+    &.downwind {
+        fill: darken(@port, 20%);
+    }
+}
+
+rect.starboard {
+    fill: lighten(@starboard, 20%);
+    &.downwind {
+        fill: darken(@starboard, 20%);
     }
 }
 
