@@ -42,6 +42,9 @@ path.highlight.port {
 path.highlight.starboard {
   stroke: none;
 }
+text.legend {
+  font-size: 12px;
+}
 rect.port {
   fill: #f1a5a5;
 }
@@ -97,6 +100,15 @@ circle.timing {
   fill: none;
   stroke: #666666;
   stroke-dasharray: 2,2;
+}
+.scrubber .axis path {
+  display: none;
+}
+.scrubber .boat {
+  fill: #666666;
+  stroke: #fff;
+  stroke-width: 6;
+  box-shadow: 10px 10px 5px #888888;
 }
 .tackGraph {
   height: 200px;

@@ -16,3 +16,10 @@ With race data stored as JSON, will graph metrics, associate them with the track
 - run ```grunt build```
 - run ```node run.js```
 - goto http://localhost:8080 or http://localhost:8080/tacks.html
+
+
+##TODO
+- fft wind
+	- shift detector
+- check tack numbers
+- underlays better graphics

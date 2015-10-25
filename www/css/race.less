@@ -61,6 +61,9 @@ path.highlight {
     }
 }
 
+text.legend {
+    font-size: 12px;
+}
 
 rect.port {
     fill: lighten(@port, 20%);
@@ -134,6 +137,21 @@ circle.timing {
     fill: none;
     stroke: @trackColor;
     stroke-dasharray: 2,2;
+}
+
+.scrubber {
+    .axis {
+        path {
+            display: none;
+        }
+    }
+
+    .boat {
+        fill: @trackColor;
+        stroke: #fff;
+        stroke-width: 6;
+        box-shadow: 10px 10px 5px #888888;
+    }
 }
 
 .tackGraph {
