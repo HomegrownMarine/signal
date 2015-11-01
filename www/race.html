@@ -228,6 +228,11 @@
                 <li>Press: {{fixed press}} degrees <span style="font-size:80%">{{fixed maxTwa}} - {{fixed recoveryTwa}}</span></li>
                 <li>Through: {{fixed through}} degrees <span style="font-size:80%">{{fixed entryHdg}} --> {{fixed recoveryHdg}}</span></li>
                 </ul>
+                <ul>
+                    {{#each notes}}
+                    <li>{{this}}</li>
+                    {{/each}}
+                </ul>
             </div>
             <div class="tackMap">
             </div>

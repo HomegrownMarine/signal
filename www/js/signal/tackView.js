@@ -14,7 +14,7 @@ tagName: 'div',
             margin.top = 30;
         }
 
-        var width = 200 - margin.left - margin.right,
+        var width = 400 - margin.left - margin.right,
             height = 200 - margin.top - margin.bottom;
 
         var zoom = false;
@@ -266,7 +266,7 @@ tagName: 'div',
     }
 });
 
-var tackView = Backbone.Marionette.LayoutView.extend({
+var tackView = Backbone.View.extend({
     className: 'tack-view',
     template: "#tackscreen",
     regions: {
@@ -297,11 +297,17 @@ var tackView = Backbone.Marionette.LayoutView.extend({
         });
 
         this.model = new Backbone.Model({'type':'popover'});
+
+        this.template = Handlebars.compile($("#tackscreen").html());
     },
 
-    onRender: function() {
+    render: function() {
         var view = this;
         
+        this.$el.html( this.template(this.templateHelpers()) );
+
+
+
         //map
         var refs = _.map([[this.tack.timing.start,this.tack.entryHdg], [this.tack.timing.end,this.tack.recoveryHdg]], function(p) {
             var time = p[0];
@@ -315,10 +321,12 @@ var tackView = Backbone.Marionette.LayoutView.extend({
             };
         });
         var track = new tackMapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
-        this.map.show(track);
+        this.$('.tackMap').append(track.el);
+        track.render();
 
         var graph = new tackGraphView(this.tack.data, this.tack);
-        this.graph.show(graph);
+        this.$('.tackGraph').append(graph.el);
+        graph.render();
     }
 });
 

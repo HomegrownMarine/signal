@@ -36,10 +36,6 @@ module.exports = function(grunt) {
                 'async.js': 'async:main',
                 'backbone.js': 'backbone:main',
                 'chroma.js': 'chroma-js:main',
-                
-                'backbone.wreqr.js': 'backbone.wreqr:main',
-                'backbone.babysitter.js': 'backbone.babysitter:main',
-                'backbone.marionette.js': 'backbone.marionette:main',
                 'handlebars.js': 'handlebars:main'
             }
         },

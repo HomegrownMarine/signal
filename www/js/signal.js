@@ -306,7 +306,60 @@
             return segs;
         },
 
-        summerizeData: function summerizeData(data, field, timeStep) {
+        //untested: create a new segment whenever 
+        createChangeDataSegments: function createSegments(data, field) {
+            
+            var segments = [];
+            var lastValue = null;
+            var startTime = null;
+
+            //get points from data
+            var getValue, fieldName;
+            if (typeof field == 'function') {
+                getValue = field;
+                fieldName = field.name;
+            }
+            else {
+                getValue = function getValue(point) {
+                    if (field in point)
+                        return point[field];
+                    else 
+                        return null;
+                };
+                fieldName = field;
+            }
+
+            var i=0;
+            for (; i < data.length; i++) {
+                var value = getValue(data[i]);
+                if ( value ) {
+                    lastValue = value;
+                    startTime = data[i].t;
+                    break;
+                }
+            }
+            
+            for (; i < data.length; i++) {
+                var newValue = getValue(data[i]);
+
+                if ( newValue && newValue != lastValue ) {
+                    var seg = {
+                        // value: lastValue,
+                        start: startTime,
+                        end: data[i].t
+                    };
+                    seg[fieldName] = lastValue;
+                    segments.push(seg);
+
+                    lastValue = newValue;
+                    startTime = data[i].t;
+                }
+            }
+
+            return segments;
+        },
+
+        createSummaryDataSegments: function summerizeData(data, field, timeStep) {
             timeStep = timeStep || 10000; //default 10 seconds
 
             var segments = [];
@@ -361,6 +414,21 @@
         //circularMean = //TODO
     }
 
+    function mean() {
+        var sum = 0, count = 0;
+
+        return {
+            update: function(p) {
+                count++;
+                sum += p;
+            },
+            result: function() {
+                if ( count ) 
+                    return sum / count;
+            }
+        };
+    }
+
     //each of these functions takes a "tack" object, and 
     //a section of data around the tack and adds some specific
     //metric(s) to the tack
@@ -396,7 +464,7 @@
                 tack.timing.start = startIdx;
             else {
                 tack.timing.start = 15;
-                tack.notes.append('using default start');
+                tack.notes.push('using default start');
             }
             tack.startPosition = [data[tack.timing.start].lon, data[tack.timing.start].lat];
         },
@@ -411,29 +479,44 @@
             var speedSum = 0, vmgSum = 0;
             var speedCount = 0, vmgCount = 0;
             var twaSum=0, twaCount = 0;
+
+            var averageSpeed = mean();
+            var averageTwa = mean();
+            var averageVmg = mean();
+
+            var averageTgtSpd = mean();
             var hdgs = [];
             for (var j=0; j < data.length; j++) {
                 if ( 'vmg' in data[j] ) {
-                    vmgSum += data[j].vmg;
-                    vmgCount++;
+                    averageVmg.update( data[j].vmg );
                 }
                 if ( 'speed' in data[j] ) {
-                    speedSum += data[j].speed;
-                    speedCount++;
+                    averageSpeed.update( data[j].speed );
                 }
                 if ( 'twa' in data[j] ) {
-                    twaSum += data[j].twa;
-                    twaCount++;
+                    averageTwa.update( data[j].twa );
+                }
+                if ( 'targetSpeed' in data[j] ) {
+                    averageTgtSpd.update( data[j].speed );
                 }
                 if ( 'hdg' in data[j] ) {
                     hdgs.push( data[j].hdg );
                 }
             }
 
-            tack.entryVmg = vmgSum / vmgCount;
-            tack.entrySpeed = speedSum / speedCount;
-            tack.entryTwa = twaSum / twaCount;
+            tack.entryVmg = averageVmg.result();
+            tack.entrySpeed = averageSpeed.result();
+            tack.entryTwa = averageTwa.result();
             tack.entryHdg = circularMean(hdgs);
+
+            var targetSpeed = averageTgtSpd.result();
+
+            if (targetSpeed) {
+                tack.targetSpeed = targetSpeed;
+                if (tack.entrySpeed < targetSpeed * 0.9) {
+                    tack.notes.push('* started tack downspeed');
+                }
+            }
         },
 
         findEnd: function findEnd(tack, data) {
@@ -481,28 +564,40 @@
             }
 
             //TODO: find better fallback
-            tack.timing.recovered = tack.timing.recovered || (tack.timing.center+30);
+            if ( !tack.timing.recovered ) {
+                tack.timing.recovered = (tack.timing.center+30);
+                tack.notes.push('never found recovery');
+            }
         },
 
         findRecoveryMetrics: function findRecoveryMetrics(tack, data) {
             //and find recovery speed and angles
             
-            var twaSum=0, twaCount = 0;
             var hdgs = [];
+            var averageSpeed = mean();
+            var averageTwa = mean();
 
             var maxIdx = Math.min(tack.timing.recovered+6, data.length);
             for (var j=tack.timing.recovered; j < maxIdx; j++) {
                 if ( 'twa' in data[j] ) {
-                    twaSum += data[j].twa;
-                    twaCount++;
+                    averageTwa.update( data[j].twa );
                 }
                 if ( 'hdg' in data[j] ) {
                     hdgs.push( data[j].hdg );
                 }
+                if ( 'speed' in data[j] ) {
+                    averageSpeed.update( data[j].speed );
+                }
             }
 
-            tack.recoveryTwa = twaSum / twaCount;
+            tack.recoveryTwa = averageTwa.result();
             tack.recoveryHdg = circularMean(hdgs);
+
+            tack.recoverySpeed = averageSpeed.result();
+
+            if (tack.targetSpeed && tack.recoverySpeed < tack.targetSpeed * 0.9) {
+                tack.notes.push('* never came back up to speed');
+            }
         },
 
         convertIndexesToTimes: function convertIndexesToTimes(tack, data) {
@@ -563,8 +658,7 @@
     /**
      * Gets a subset of the data, between the times specified
      */
-    function getSliceBetweenTimes(data, from, to) {
-        
+    function getSliceBetweenTimes(data, from, to) {      
         var fromIdx = _.sortedIndex(data, {t: from}, function(d) { return d.t; });
         var toIdx = _.sortedIndex(data, {t: to}, function(d) { return d.t; });            
 
@@ -573,41 +667,43 @@
      
 
     function findManeuvers(data) {
-        var maneuvers = [];
+        function board(point) {
+            var b = null;
+            if ( 'twa' in point ) {
+                b = 'U-S';
+                if (-90 <= point.twa && point.twa < 0)
+                    b = 'U-P';
+                else if (point.twa < -90)
+                    b = 'D-P';
+                else if (point.twa > 90)
+                    b = 'D-S';
 
-        //fimd maneuvers
-        var lastBoard = null;
-        var lastBoardStart = data[0].t;
-        for (var i = 0; i < data.length; i++) {
-            if ( 'twa' in data[i] ) {
-                var board = 'U-S';
-                if (-90 <= data[i].twa && data[i].twa < 0)
-                    board = 'U-P';
-                else if (data[i].twa < -90)
-                    board = 'D-P';
-                else if (data[i].twa > 90)
-                    board = 'D-S';
-
-                if (data[i].ot < 300) {
-                    board = "PS";
+                if (point.ot < 300) {
+                    b = "PS";
                 }
-
-                if (lastBoard != board) {
-                    if ( lastBoard !== null ) {
-                        maneuvers.push({
-                            board: lastBoard,
-                            start: lastBoardStart,
-                            end: data[i].t
-                        });
-                    }
-                    lastBoard = board;
-                    lastBoardStart = data[i].t;
-                }
-
             }
+            return b;
         }
 
-        return maneuvers;
+        return homegrown.streamingUtilities.createChangeDataSegments(data, board);
+    }
+
+    function findLegs(data) {
+        function leg(point) {
+            var l = null;
+            if (point.ot < 300) {
+                l = "PS";
+            }
+            else if ('twa' in point) {
+                if (Math.abs(point.twa) < 90)
+                    l = 'Upwind';
+                else 
+                    l = 'Downwind';
+            }
+            return l;
+        }
+
+        return homegrown.streamingUtilities.createChangeDataSegments(data, leg);
     }
 
     function analyzeTacks(maneuvers, data) {
@@ -1366,18 +1462,11 @@ var mapView = Backbone.View.extend({
                                 .attr("class", "compass")
                                 .attr('transform', 'rotate(-'+angle+')');
 
-            // compass.append("circle")
-            //     .attr("r", 20) 
-
             compass.append("path")
-                .attr('class', 'ew')
-                .attr("d", "M17,0 L0,3 L-17,0 L0,-3 L17,0")
+                .attr('class', 'rose')
+                .attr('transform', 'translate(-15, -15)')
+                .attr("d", "m 5.504372,5.3780677 3.2668,5.3903203 a 7.5119625,7.5119625 0 0 1 2.0986,-2.0801703 l -5.3654,-3.31015 z m 19.22843,0.20867 -5.45437,3.19174 a 7.5119625,7.5119625 0 0 1 2.10119,2.2098903 l 3.35318,-5.4016303 z m -15.96422,13.5443603 -3.30983,5.36541 5.40941,-3.27845 a 7.5119625,7.5119625 0 0 1 -2.09958,-2.08696 z m 12.44508,0.0508 a 7.5119625,7.5119625 0 0 1 -2.1963,2.12028 l 5.39743,3.34994 -3.20113,-5.47022 z m -6.15153,-19.2277903 -2.41014,9.82531 a 5.8244926,5.6339721 11 0 0 -2.95364,2.8630603 l -9.69300001,2.29659 9.79652001,2.4027 a 5.8244926,5.6339721 11 0 0 2.63531,2.61817 l 2.33929,9.9945 2.5664,-9.80751 a 5.8244926,5.6339721 11 0 0 2.898,-2.63693 l 9.76448,-2.28495 -9.67907,-2.53275 a 5.8244926,5.6339721 11 0 0 -2.92356,-2.8588603 l -2.34059,-9.87933 z m -0.0569,11.9245603 a 3.102767,3.0755499 0 0 1 3.10278,3.07561 3.102767,3.0755499 0 0 1 -3.10278,3.0756 3.102767,3.0755499 0 0 1 -3.10277,-3.0756 3.102767,3.0755499 0 0 1 3.10277,-3.07561 z");
 
-            compass.append("path")
-                .attr("d", "M0,-18 L3,0 L0,18 L-3,0 L0,-18")
-
-            compass.append("path")
-                .attr("d", "M4,4 L4,-4 L-4,-4 L-4,4 L4,4")
 
             compass.append('text')
                 .attr('dy', -20)
@@ -1530,7 +1619,7 @@ var mapView = Backbone.View.extend({
                     .text(function(d) { return legend[d]; })
 
 
-        var polars = _(homegrown.streamingUtilities.summerizeData(this.model.data, 'performance', 10000))
+        var polars = _(homegrown.streamingUtilities.createSummaryDataSegments(this.model.data, 'performance', 10000))
                         .filter(function(d) { return d.performance > 50 && d.performance < 151 })
                         .each(function(d) { d.color = perfScale(d.performance); })
                         .value();
@@ -1602,6 +1691,7 @@ var mapView = Backbone.View.extend({
             var layerName = this.getAttribute('href').slice(1);
             console.info('layer', layerName, this);
             $('.layer.'+layerName).show();
+            return false;
         })
             .eq(1).click(); //select performance
     },
@@ -1655,10 +1745,15 @@ var mapView = Backbone.View.extend({
         }
 
 
+        // function brushed(a,b,c,d) {
+        //     console.info('brushed', a,b,c,d );
+        // }
+
         var brush = d3.svg.brush()
             .x(x)
             .extent([0, 0])
             .on("brush", brushed);
+
 
         var scrubSvg = d3.select(this.el).append("svg")
             .attr("width", width)
@@ -1667,7 +1762,9 @@ var mapView = Backbone.View.extend({
         .append("g")
             .attr("transform", "translate(40, 10)");
 
-        
+        scrubSvg.append("g")
+            .attr("class", "g-slider")
+            .call(brush);        
 
         
         scrubSvg.append("g")
@@ -1751,8 +1848,8 @@ var tackMapView = Backbone.View.extend({
         var width = this.$el.width() - margin.left - margin.right,
             height = this.$el.height() - margin.top - margin.bottom;
 
-        width = width || 200;
-        height = height || 200;
+        width = width || 400;
+        height = height || 400;
 
         // get extent of track, and make GEOJSON object
         var allTimeRange = d3.extent(this.model.data, function(d) { return d.t; });
@@ -1944,7 +2041,7 @@ tagName: 'div',
             margin.top = 30;
         }
 
-        var width = 200 - margin.left - margin.right,
+        var width = 400 - margin.left - margin.right,
             height = 200 - margin.top - margin.bottom;
 
         var zoom = false;
@@ -2196,7 +2293,7 @@ tagName: 'div',
     }
 });
 
-var tackView = Backbone.Marionette.LayoutView.extend({
+var tackView = Backbone.View.extend({
     className: 'tack-view',
     template: "#tackscreen",
     regions: {
@@ -2227,11 +2324,17 @@ var tackView = Backbone.Marionette.LayoutView.extend({
         });
 
         this.model = new Backbone.Model({'type':'popover'});
+
+        this.template = Handlebars.compile($("#tackscreen").html());
     },
 
-    onRender: function() {
+    render: function() {
         var view = this;
         
+        this.$el.html( this.template(this.templateHelpers()) );
+
+
+
         //map
         var refs = _.map([[this.tack.timing.start,this.tack.entryHdg], [this.tack.timing.end,this.tack.recoveryHdg]], function(p) {
             var time = p[0];
@@ -2245,10 +2348,12 @@ var tackView = Backbone.Marionette.LayoutView.extend({
             };
         });
         var track = new tackMapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
-        this.map.show(track);
+        this.$('.tackMap').append(track.el);
+        track.render();
 
         var graph = new tackGraphView(this.tack.data, this.tack);
-        this.graph.show(graph);
+        this.$('.tackGraph').append(graph.el);
+        graph.render();
     }
 });
 
