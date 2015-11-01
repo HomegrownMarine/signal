@@ -74,18 +74,11 @@ var mapView = Backbone.View.extend({
                                 .attr("class", "compass")
                                 .attr('transform', 'rotate(-'+angle+')');
 
-            // compass.append("circle")
-            //     .attr("r", 20) 
-
             compass.append("path")
-                .attr('class', 'ew')
-                .attr("d", "M17,0 L0,3 L-17,0 L0,-3 L17,0")
+                .attr('class', 'rose')
+                .attr('transform', 'translate(-15, -15)')
+                .attr("d", "m 5.504372,5.3780677 3.2668,5.3903203 a 7.5119625,7.5119625 0 0 1 2.0986,-2.0801703 l -5.3654,-3.31015 z m 19.22843,0.20867 -5.45437,3.19174 a 7.5119625,7.5119625 0 0 1 2.10119,2.2098903 l 3.35318,-5.4016303 z m -15.96422,13.5443603 -3.30983,5.36541 5.40941,-3.27845 a 7.5119625,7.5119625 0 0 1 -2.09958,-2.08696 z m 12.44508,0.0508 a 7.5119625,7.5119625 0 0 1 -2.1963,2.12028 l 5.39743,3.34994 -3.20113,-5.47022 z m -6.15153,-19.2277903 -2.41014,9.82531 a 5.8244926,5.6339721 11 0 0 -2.95364,2.8630603 l -9.69300001,2.29659 9.79652001,2.4027 a 5.8244926,5.6339721 11 0 0 2.63531,2.61817 l 2.33929,9.9945 2.5664,-9.80751 a 5.8244926,5.6339721 11 0 0 2.898,-2.63693 l 9.76448,-2.28495 -9.67907,-2.53275 a 5.8244926,5.6339721 11 0 0 -2.92356,-2.8588603 l -2.34059,-9.87933 z m -0.0569,11.9245603 a 3.102767,3.0755499 0 0 1 3.10278,3.07561 3.102767,3.0755499 0 0 1 -3.10278,3.0756 3.102767,3.0755499 0 0 1 -3.10277,-3.0756 3.102767,3.0755499 0 0 1 3.10277,-3.07561 z");
 
-            compass.append("path")
-                .attr("d", "M0,-18 L3,0 L0,18 L-3,0 L0,-18")
-
-            compass.append("path")
-                .attr("d", "M4,4 L4,-4 L-4,-4 L-4,4 L4,4")
 
             compass.append('text')
                 .attr('dy', -20)
@@ -238,7 +231,7 @@ var mapView = Backbone.View.extend({
                     .text(function(d) { return legend[d]; })
 
 
-        var polars = _(homegrown.streamingUtilities.summerizeData(this.model.data, 'performance', 10000))
+        var polars = _(homegrown.streamingUtilities.createSummaryDataSegments(this.model.data, 'performance', 10000))
                         .filter(function(d) { return d.performance > 50 && d.performance < 151 })
                         .each(function(d) { d.color = perfScale(d.performance); })
                         .value();
@@ -310,6 +303,7 @@ var mapView = Backbone.View.extend({
             var layerName = this.getAttribute('href').slice(1);
             console.info('layer', layerName, this);
             $('.layer.'+layerName).show();
+            return false;
         })
             .eq(1).click(); //select performance
     },
@@ -363,10 +357,15 @@ var mapView = Backbone.View.extend({
         }
 
 
+        // function brushed(a,b,c,d) {
+        //     console.info('brushed', a,b,c,d );
+        // }
+
         var brush = d3.svg.brush()
             .x(x)
             .extent([0, 0])
             .on("brush", brushed);
+
 
         var scrubSvg = d3.select(this.el).append("svg")
             .attr("width", width)
@@ -375,7 +374,9 @@ var mapView = Backbone.View.extend({
         .append("g")
             .attr("transform", "translate(40, 10)");
 
-        
+        scrubSvg.append("g")
+            .attr("class", "g-slider")
+            .call(brush);        
 
         
         scrubSvg.append("g")
@@ -459,8 +460,8 @@ var tackMapView = Backbone.View.extend({
         var width = this.$el.width() - margin.left - margin.right,
             height = this.$el.height() - margin.top - margin.bottom;
 
-        width = width || 200;
-        height = height || 200;
+        width = width || 400;
+        height = height || 400;
 
         // get extent of track, and make GEOJSON object
         var allTimeRange = d3.extent(this.model.data, function(d) { return d.t; });

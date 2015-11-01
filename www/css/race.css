@@ -1,6 +1,7 @@
 body {
   font-family: helvetica;
 }
+/*#0087cd;*/
 #graphs {
   margin-left: 580px;
   width: 744px;
@@ -58,28 +59,19 @@ rect.starboard.downwind {
   fill: #2db01a;
 }
 rect.water {
-  fill: #0087cd;
+  fill: #62b7fc;
 }
 .wind line {
-  stroke-width: 1;
-  stroke: #666;
+  stroke-width: 1.5;
+  stroke: #fff;
 }
-.compass circle {
-  stroke-width: 0.5;
-  stroke: #734e98;
-  fill: none;
-}
-.compass path {
-  stroke-width: 0.5;
-  stroke: #734e98;
-  fill: #0087cd;
-}
-.compass .ew {
-  fill: #0087cd;
+.compass .rose {
+  fill: #ffffff;
+  stroke: none;
 }
 .compass text {
-  fill: #734e98;
-  font-size: 11px;
+  fill: #ffffff;
+  font-size: 12px;
 }
 .tack-label {
   stroke-width: .35;
@@ -112,7 +104,7 @@ circle.timing {
 }
 .tackGraph {
   height: 200px;
-  width: 200px;
+  width: 400px;
   display: inline-block;
 }
 .tackGraph .axis text {
@@ -128,8 +120,8 @@ circle.timing {
   stroke-dasharray: 3,3;
 }
 .tackMap {
-  height: 200px;
-  width: 200px;
+  height: 400px;
+  width: 400px;
   display: inline-block;
 }
 .popover {
