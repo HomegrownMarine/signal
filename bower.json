@@ -2,7 +2,6 @@
   "name": "signal",
   "dependencies": {
     "jquery": "~1.11.0",
-    "lodash": "3.10.1",
     "moment": "2.10.6",
     "d3": "3.5.6",
     "backbone": "1.1.2",
@@ -10,7 +9,15 @@
     "homegrown-polars": "*",
     "homegrown-sailing": "*",
     "async": "~0.9.2",
-    "chroma-js": "*"
+    "chroma-js": "*",
+    "lodash": "3.10.1"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "overrides": {
+    "backbone": {
+      "dependencies": {
+        "lodash": "*"
+      }
+    }
+  }
 }

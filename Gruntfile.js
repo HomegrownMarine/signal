@@ -1,5 +1,13 @@
 module.exports = function(grunt) {
 
+  // Time how long tasks take. Can help when optimizing build times
+  require('time-grunt')(grunt);
+
+  // Automatically load required grunt tasks
+  require('jit-grunt')(grunt, {
+    useminPrepare: 'grunt-usemin'
+  });
+
   // Project configuration.
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
@@ -19,82 +27,48 @@ module.exports = function(grunt) {
         asi: true
       }
     },
-    bowercopy: {
-        options: {
-            // Bower components folder will be removed afterwards 
-            // clean: true
-        },
-        libs: {
-            options: {
-                destPrefix: 'www/js/lib'
-            },
-            files: {
-                'jquery.js': 'jquery:main',
-                'lodash.js': 'lodash:main',
-                'moment.js': 'moment:main',
-                'd3.js': 'd3:main',
-                'async.js': 'async:main',
-                'backbone.js': 'backbone:main',
-                'chroma.js': 'chroma-js:main',
-                'handlebars.js': 'handlebars:main'
-            }
-        },
-        //
-        homegrown: {
-            files: {
-                'www/js/homegrown-lib/polars.js': 'homegrown-polars:main',
-                'www/js/homegrown-lib': 'homegrown-sailing/src/*.js'
-            }
-        }
-    },
-
-    concat: {
-      options: {
-        // define a string to put between each file in the concatenated output
-        separator: ';',
-        sourceMap: true
-      },
-      //libraries from homegrownmarine (this package and others)
-      homegrown: {
-        src: ['www/js/homegrown-lib/calcs.js', 
-              'www/js/homegrown-lib/utilities.js', 
-              'www/js/homegrown-lib/maneuvers.js', 
-              'www/js/homegrown-lib/polars.js', 
-              'www/js/signal/data.js', 
-              'www/js/signal/graph.js', 
-              'www/js/signal/map.js',
-              'www/js/signal/tackView.js'
-              ],
-        dest: 'www/js/signal.js'
-      },
-      //global libraries
-      libs: {
-        src: ['www/js/lib/jquery.js',
-              'www/js/lib/lodash.js',
-              'www/js/lib/moment.js',
-              'www/js/lib/d3.js',
-              'www/js/lib/chroma.js',
-              'www/js/lib/async.js',
-              'www/js/lib/backbone.js',
-              'www/js/lib/backbone.wreqr.js',
-              'www/js/lib/backbone.babysitter.js',
-              'www/js/lib/backbone.marionette.js',
-              'www/js/lib/handlebars.js'],
-        dest: 'www/js/lib.js'
+    
+    // Empties folders to start fresh
+    clean: {
+      dist: {
+        files: [{
+          dot: true,
+          src: [
+            '.tmp',
+            'dist/*',
+            '!dist/.git*'
+          ]
+        }]
       }
     },
 
-    uglify: {
-      options: {
-        banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n',
-        sourceMap: true,
-      },
-      dest: {
-        files: {
-          'www/js/lib.min.js': ['www/js/lib.js'],
-          'www/js/signal.min.js': ['www/js/signal.js']
-        }
+    wiredep: {
+      app: {
+        src: ['www/race.html'],
+        ignorePath: /^(\.\.\/)*\.\./
       }
+    },
+
+    // Reads HTML for usemin blocks to enable smart builds that automatically
+    // concat, minify and revision files. Creates configurations in memory so
+    // additional tasks can operate on them
+    useminPrepare: {
+      options: {
+        dest: 'dist'
+      },
+      html: 'www/race.html'
+    },
+
+    // Performs rewrites based on rev and the useminPrepare configuration
+    usemin: {
+      options: {
+        assetsDirs: [
+          'dist',
+          'dist/css'
+        ]
+      },
+      html: ['dist/{,*/}*.html'],
+      css: ['dist/css/{,*/}*.css']
     },
 
     less: {
@@ -107,6 +81,33 @@ module.exports = function(grunt) {
       }
       }
     },
+    filerev: {
+      dist: {
+        src: [
+          'dist/scripts/{,*/}*.js',
+          'dist/styles/{,*/}*.css',
+          'dist/images/{,*/}*.*',
+          'dist/styles/fonts/{,*/}*.*',
+          'dist/*.{ico,png}'
+        ]
+      }
+    },
+    copy: {
+      dist: {
+        files: [{
+          expand: true,
+          dot: true,
+          cwd: 'www',
+          dest: 'dist',
+          src: [
+            '*.{ico,png,txt}',
+            'images/{,*/}*.webp',
+            '{,*/}*.html',
+            'css/{,*/}*.css'
+          ]
+        }]
+      }
+    },
 
     watch: {
       files: ['www/js/signal/*.js','www/css/*.less'],
@@ -115,17 +116,29 @@ module.exports = function(grunt) {
   });
 
   // Load the plugin that provides the "uglify" task.
-  grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-contrib-jshint');
-  grunt.loadNpmTasks('grunt-contrib-watch');
-  grunt.loadNpmTasks('grunt-contrib-concat');
-  grunt.loadNpmTasks('grunt-contrib-less');
-  grunt.loadNpmTasks('grunt-bowercopy');
+  // grunt.loadNpmTasks('grunt-contrib-uglify');
+  // grunt.loadNpmTasks('grunt-contrib-jshint');
+  // grunt.loadNpmTasks('grunt-contrib-watch');
+  // grunt.loadNpmTasks('grunt-contrib-concat');
+  // grunt.loadNpmTasks('grunt-contrib-less');
+  // grunt.loadNpmTasks('grunt-bowercopy');
+  // grunt.loadNpmTasks('grunt-wiredep');
 
   // Default task(s).
   grunt.registerTask('homegrown', ['concat:homegrown', 'jshint', 'less']);
   grunt.registerTask('build', ['bowercopy', 'concat', 'uglify']);
   grunt.registerTask('test', ['jshint']);
   grunt.registerTask('default', ['build']);
+  grunt.registerTask('prod', [
+    'clean:dist',
+    'less',
+    'wiredep',
+    'useminPrepare',
+    'concat',
+    'uglify',
+    'copy:dist',
+    'filerev',
+    'usemin'
+  ]);
 
 };

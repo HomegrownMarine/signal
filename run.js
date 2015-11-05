@@ -12,6 +12,8 @@ var handlebars = require('handlebars');
 var server = express();
 
 server.use('/', express.static(path.join(__dirname, 'www')));
+server.use('/www', express.static(path.join(__dirname, 'www')));
+server.use('/bower_components', express.static(path.join(__dirname, 'bower_components')));
 
 var indexTemplate = null;
 fs.readFile(path.join(__dirname,'templates/index.html'), {encoding:'utf8'}, function(err, data) {

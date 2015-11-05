@@ -4,8 +4,22 @@
         <title>Race Replay</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=1320, user-scalable=no">
-        <script src="js/lib.js"></script>
-
+        
+        <!-- build:js(.) js/lib.js -->
+        <!-- bower:js -->
+        <script src="/bower_components/jquery/dist/jquery.js"></script>
+        <script src="/bower_components/moment/moment.js"></script>
+        <script src="/bower_components/d3/d3.js"></script>
+        <script src="/bower_components/lodash/lodash.js"></script>
+        <script src="/bower_components/backbone/backbone.js"></script>
+        <script src="/bower_components/handlebars/handlebars.js"></script>
+        <script src="/bower_components/homegrown-polars/dist/polars.js"></script>
+        <script src="/bower_components/homegrown-sailing/dist/sailing.js"></script>
+        <script src="/bower_components/async/lib/async.js"></script>
+        <script src="/bower_components/chroma-js/chroma.js"></script>
+        <!-- endbower -->
+        <!-- endbuild -->
+        
         <script>
             if ( typeof window.console === 'undefined' ) {
                 window.console = {
@@ -22,7 +36,12 @@
 
         </script>
 
-        <script src="js/signal.js"></script>
+        <!-- build:js(.) js/signal.js -->
+        <script src="/www/js/data.js"></script>
+        <script src="/www/js/graph.js"></script>
+        <script src="/www/js/map.js"></script>
+        <script src="/www/js/tackView.js"></script>
+        <!-- endbuild -->
 
         <script>
             var metrics = [{'metric':'tws', 'group':'wind'},
@@ -127,12 +146,6 @@
 
             //load data  
             $(function() {
-                
-
-                Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
-                    return Handlebars.compile(rawTemplate);
-                };
-
                 Handlebars.registerHelper('fixed', function(value, precision) {
                     if (!_.isNumber(value)) {
                         return "NaN";
@@ -140,8 +153,6 @@
                     precision = _.isNumber(precision)? precision: 1;
                     return value.toFixed(precision);
                 });
-
-                
 
                 Promise.all([racesPromise, raceDataPromise]).then(function(results) {
                         
@@ -220,9 +231,13 @@
         <script type="text/handlebars" id="tackscreen">
 
             <h3>Tack Details</h3>
+            <div>Loss: {{loss}}ft</div>
             <div class="summary">
                 <ul>
-                <li>Loss: {{loss}}ft</li>
+                <li></li>
+                <li>TWS: {{tws}}kts</li>
+                <li>targetAngle: {{targetAngle}}ft</li>
+                <li>targetSpeed: {{targetSpeed}}ft</li>
                 <li>Duration: {{duration}}s</li>
                 <li>Recovery: {{recovery}}s</li>
                 <li>Press: {{fixed press}} degrees <span style="font-size:80%">{{fixed maxTwa}} - {{fixed recoveryTwa}}</span></li>
