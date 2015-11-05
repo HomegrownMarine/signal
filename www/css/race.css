@@ -1,6 +1,7 @@
 body {
   font-family: helvetica;
 }
+/*#0087cd;*/
 #graphs {
   margin-left: 580px;
   width: 744px;
@@ -33,7 +34,7 @@ body {
   stroke-width: 0;
 }
 path.highlight {
-  stroke-width: 2;
+  stroke-width: 2.5;
   fill: none;
 }
 path.highlight.port {
@@ -41,6 +42,12 @@ path.highlight.port {
 }
 path.highlight.starboard {
   stroke: none;
+}
+text.legend {
+  font-size: 12px;
+}
+rect.board.prestart {
+  fill: #dedede;
 }
 rect.port {
   fill: #f1a5a5;
@@ -55,28 +62,29 @@ rect.starboard.downwind {
   fill: #2db01a;
 }
 rect.water {
-  fill: #0087cd;
+  fill: #62b7fc;
 }
-.wind line {
-  stroke-width: 1;
-  stroke: #666;
+div.layers {
+  background-color: #62b7fc;
+  padding: 5px 10px;
 }
-.compass circle {
-  stroke-width: 0.5;
-  stroke: #734e98;
-  fill: none;
+div.layers a:link {
+  color: #fff;
+  text-decoration: none;
+  margin: 0 10px;
+  display: inline-block;
 }
-.compass path {
-  stroke-width: 0.5;
-  stroke: #734e98;
-  fill: #0087cd;
+.annotations text {
+  fill: #ffffff;
+  font-size: 12px;
 }
-.compass .ew {
-  fill: #0087cd;
+.annotations .wind line {
+  stroke-width: 1.5;
+  stroke: #ffffff;
 }
-.compass text {
-  fill: #734e98;
-  font-size: 11px;
+.annotations .compass .rose {
+  fill: #ffffff;
+  stroke: none;
 }
 .tack-label {
   stroke-width: .35;
@@ -96,11 +104,21 @@ rect.water {
 circle.timing {
   fill: none;
   stroke: #666666;
-  stroke-dasharray: 2,2;
+  stroke-width: 0.35;
+}
+.scrubber .axis path {
+  display: none;
+}
+.scrubber .boat {
+  fill: #666666;
+  stroke: #fff;
+  stroke-width: 2;
+  -webkit-filter: drop-shadow(1px 1px 2px #999999);
+  filter: drop-shadow(1px 1px 2px #999999);
 }
 .tackGraph {
-  height: 200px;
-  width: 200px;
+  height: 150px;
+  width: 400px;
   display: inline-block;
 }
 .tackGraph .axis text {
@@ -111,14 +129,22 @@ circle.timing {
   stroke-width: .5;
 }
 .tackGraph .grid .tick {
-  stroke: #ccc;
+  stroke: #dedede;
   stroke-width: .5;
   stroke-dasharray: 3,3;
 }
+.tackGraph.wind {
+  height: 100px;
+}
 .tackMap {
-  height: 200px;
-  width: 200px;
+  height: 400px;
+  width: 400px;
   display: inline-block;
+}
+.tackMap line.twa-ref {
+  stroke: #d76f56;
+  stroke-width: 0.5;
+  stroke-dasharray: 2,3;
 }
 .popover {
   max-width: 800px;

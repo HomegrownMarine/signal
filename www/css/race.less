@@ -1,7 +1,7 @@
 body { font-family: helvetica; }
 
 @trackColor: #666;
-@waterColor: #0087cd;
+@waterColor: #62b7fc; /*#0087cd;*/
 
 @port: #e44c4c;
 @starboard: #5fe44c;
@@ -50,7 +50,7 @@ body { font-family: helvetica; }
 }
 
 path.highlight {
-    stroke-width: 2;
+    stroke-width: 2.5;
     fill: none;
 
     &.port {
@@ -61,6 +61,13 @@ path.highlight {
     }
 }
 
+text.legend {
+    font-size: 12px;
+}
+
+rect.board.prestart {
+    fill: #dedede;
+}
 
 rect.port {
     fill: lighten(@port, 20%);
@@ -81,36 +88,41 @@ rect.water {
     fill: @waterColor;
 }
 
-.wind line {
-    stroke-width: 1;
-    stroke: #666;
+div.layers {
+    background-color: @waterColor;
+    padding: 5px 10px;
+    
+    a:link {
+        color: #fff;
+        text-decoration: none;
+        margin:0 10px; 
+        display: inline-block;   
+    }
+    
+
 }
 
-.compass {
-    @roseColor: #734e98;
-    @roseStrokeWidth: .5;
-
-    circle {
-        stroke-width: @roseStrokeWidth;
-        stroke: @roseColor;
-        fill: none;
-    }
-
-    path {
-        stroke-width: @roseStrokeWidth;
-        stroke: @roseColor;
-        fill: @waterColor;
-    }
-
-    .ew {
-        fill: @waterColor;
-    }
-
+@annotationColor: #fff;
+.annotations {
     text {
-        fill: @roseColor;
-        font-size: 11px;
+        fill: @annotationColor;
+        font-size: 12px;
+    }
+
+    .wind line {
+        stroke-width: 1.5;
+        stroke: @annotationColor;
+    }
+
+    .compass {
+        .rose {
+            fill: @annotationColor;
+            stroke: none;
+        }    
     }
 }
+
+
 
 .tack-label {
     stroke-width: .35;
@@ -133,12 +145,29 @@ rect.water {
 circle.timing {
     fill: none;
     stroke: @trackColor;
-    stroke-dasharray: 2,2;
+    stroke-width: 0.35;
+}
+
+.scrubber {
+    .axis {
+        path {
+            display: none;
+        }
+    }
+
+    .boat {
+        fill: @trackColor;
+        stroke: #fff;
+        stroke-width: 2;
+        -webkit-filter: drop-shadow(1px 1px 2px #999);
+        filter: drop-shadow(1px 1px 2px #999);
+    }
 }
 
 .tackGraph {
-    height: 200px;
-    width: 200px;
+    height: 150px;
+    width: 400px;
+
     display: inline-block;
 
     .axis text {
@@ -151,17 +180,29 @@ circle.timing {
     }
 
     .grid .tick {
-        stroke: #ccc;
+        stroke: #dedede;
         stroke-width: .5;
         stroke-dasharray: 3,3;
     }
 }
 
-.tackMap {
-    height: 200px;
-    width: 200px;
-    display: inline-block;
+.tackGraph.wind {
+    height: 100px;
 }
+
+.tackMap {
+    height: 400px;
+    width: 400px;
+    display: inline-block;
+
+    line.twa-ref {
+        stroke: #d76f56;
+        stroke-width: 0.5;
+        stroke-dasharray: 2,3;
+    }
+}
+
+
 
 .popover {
     max-width: 800px;

@@ -111,6 +111,9 @@ function buildOutData(dat, offset, calibrate) {
             return calcs.vmg(targetSpeed, targetAngle);
             // return (targetVmg / vmg) * 100;
         }),
+        delayedInputs(function performance(targetVmg, vmg) {
+            return (targetVmg / vmg) * 100;
+        }),
 
         //TODO: smooth and filter wind vars
         //TODO: Fourier transform

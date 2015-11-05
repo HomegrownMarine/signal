@@ -128,6 +128,16 @@
             //drift is the magnitude of the current vector
             var _drift = Math.sqrt(current_x * current_x + current_y * current_y);
             return _drift;
+        },
+
+        circularMean: function circularMean(dat) {
+            var sinComp = 0, cosComp = 0;
+            _.each(dat, function(angle) {
+                sinComp += Math.sin(rad(angle));
+                cosComp += Math.cos(rad(angle));
+            });
+
+            return (360+deg(Math.atan2(sinComp/dat.length, cosComp/dat.length)))%360;
         }
     };
 
@@ -264,6 +274,118 @@
 
                 return null;
             };
+        },
+
+        /*
+            Pass in a data array, where each element has a time, t and a set of segments,
+            each with a start and end time, and get back a new segment array, with each having
+            a data array for points within the segments start and end time.
+        */
+        segmentData: function segmentData(data, segments) {
+            var segs = _.clone(segments, true);
+            _.each(segs, function(seg) {
+                seg.data = [];
+            });
+
+            var j = 0;
+            for ( var i=0; i < data.length; i++ ) {
+                if ( data[i].t < segs[j].start ) {
+                    continue;
+                }
+                else if ( data[i].t < segs[j].end ) {
+                    segs[j].data.push(data[i]);
+                }
+                else {
+                    j++;
+                    if (j >= segs.length) 
+                        break;
+                    segs[j].data.push(data[i]);
+                }
+            }
+
+            return segs;
+        },
+
+        //untested: create a new segment whenever 
+        createChangeDataSegments: function createSegments(data, field) {
+            
+            var segments = [];
+            var lastValue = null;
+            var startTime = null;
+
+            //get points from data
+            var getValue, fieldName;
+            if (typeof field == 'function') {
+                getValue = field;
+                fieldName = field.name;
+            }
+            else {
+                getValue = function getValue(point) {
+                    if (field in point)
+                        return point[field];
+                    else 
+                        return null;
+                };
+                fieldName = field;
+            }
+
+            var i=0;
+            for (; i < data.length; i++) {
+                var value = getValue(data[i]);
+                if ( value ) {
+                    lastValue = value;
+                    startTime = data[i].t;
+                    break;
+                }
+            }
+            
+            for (; i < data.length; i++) {
+                var newValue = getValue(data[i]);
+
+                if ( newValue && newValue != lastValue ) {
+                    var seg = {
+                        // value: lastValue,
+                        start: startTime,
+                        end: data[i].t
+                    };
+                    seg[fieldName] = lastValue;
+                    segments.push(seg);
+
+                    lastValue = newValue;
+                    startTime = data[i].t;
+                }
+            }
+
+            return segments;
+        },
+
+        createSummaryDataSegments: function summerizeData(data, field, timeStep) {
+            timeStep = timeStep || 10000; //default 10 seconds
+
+            var segments = [];
+            var sum=0, count=0;
+            var startTime = data[0].t;
+            
+            for (var i=0; i < data.length; i++) {
+                if (data[i].t > startTime + timeStep) {
+                    var seg = {
+                        start: startTime,
+                        end: data[i].t
+                    };
+                    seg[field] = sum/count;
+                    segments.push(seg);
+
+                    sum = 0; count = 0;
+                    startTime = data[i].t;
+                }
+
+                if ( field in data[i] ) {
+                    sum += data[i][field];
+                    count++;
+                }
+            }
+
+            return segments;
         }
     };
 
@@ -279,35 +401,32 @@
     }
 })();;(function() {
     "use strict";
-    var _, moment;
+    var _, moment, circularMean;
 
     if ( typeof window != 'undefined' ) {
         _ = window._;
         moment = window.moment;
+        circularMean = homegrown.calculations.circularMean;
     }
     else if( typeof require == 'function' ) {
         _ = require('lodash');
         moment = require('moment');
+        //circularMean = //TODO
     }
 
-   var deg = function deg(radians) {
-        return (radians*180/Math.PI + 360) % 360;
-    };
+    function mean() {
+        var sum = 0, count = 0;
 
-    var rad = function rad(degrees) {
-        return degrees * Math.PI / 180;
-    };
-
- 
-
-    function circularMean(dat) {
-        var sinComp = 0, cosComp = 0;
-        _.each(dat, function(angle) {
-            sinComp += Math.sin(rad(angle));
-            cosComp += Math.cos(rad(angle));
-        });
-
-        return (360+deg(Math.atan2(sinComp/dat.length, cosComp/dat.length)))%360;
+        return {
+            update: function(p) {
+                count++;
+                sum += p;
+            },
+            result: function() {
+                if ( count ) 
+                    return sum / count;
+            }
+        };
     }
 
     //each of these functions takes a "tack" object, and 
@@ -345,7 +464,7 @@
                 tack.timing.start = startIdx;
             else {
                 tack.timing.start = 15;
-                tack.notes.append('using default start');
+                tack.notes.push('using default start');
             }
             tack.startPosition = [data[tack.timing.start].lon, data[tack.timing.start].lat];
         },
@@ -360,29 +479,44 @@
             var speedSum = 0, vmgSum = 0;
             var speedCount = 0, vmgCount = 0;
             var twaSum=0, twaCount = 0;
+
+            var averageSpeed = mean();
+            var averageTwa = mean();
+            var averageVmg = mean();
+
+            var averageTgtSpd = mean();
             var hdgs = [];
             for (var j=0; j < data.length; j++) {
                 if ( 'vmg' in data[j] ) {
-                    vmgSum += data[j].vmg;
-                    vmgCount++;
+                    averageVmg.update( data[j].vmg );
                 }
                 if ( 'speed' in data[j] ) {
-                    speedSum += data[j].speed;
-                    speedCount++;
+                    averageSpeed.update( data[j].speed );
                 }
                 if ( 'twa' in data[j] ) {
-                    twaSum += data[j].twa;
-                    twaCount++;
+                    averageTwa.update( data[j].twa );
+                }
+                if ( 'targetSpeed' in data[j] ) {
+                    averageTgtSpd.update( data[j].speed );
                 }
                 if ( 'hdg' in data[j] ) {
                     hdgs.push( data[j].hdg );
                 }
             }
 
-            tack.entryVmg = vmgSum / vmgCount;
-            tack.entrySpeed = speedSum / speedCount;
-            tack.entryTwa = twaSum / twaCount;
+            tack.entryVmg = averageVmg.result();
+            tack.entrySpeed = averageSpeed.result();
+            tack.entryTwa = averageTwa.result();
             tack.entryHdg = circularMean(hdgs);
+
+            var targetSpeed = averageTgtSpd.result();
+
+            if (targetSpeed) {
+                tack.targetSpeed = targetSpeed;
+                if (tack.entrySpeed < targetSpeed * 0.9) {
+                    tack.notes.push('* started tack downspeed');
+                }
+            }
         },
 
         findEnd: function findEnd(tack, data) {
@@ -430,28 +564,40 @@
             }
 
             //TODO: find better fallback
-            tack.timing.recovered = tack.timing.recovered || (tack.timing.center+30);
+            if ( !tack.timing.recovered ) {
+                tack.timing.recovered = (tack.timing.center+30);
+                tack.notes.push('never found recovery');
+            }
         },
 
         findRecoveryMetrics: function findRecoveryMetrics(tack, data) {
             //and find recovery speed and angles
             
-            var twaSum=0, twaCount = 0;
             var hdgs = [];
+            var averageSpeed = mean();
+            var averageTwa = mean();
 
             var maxIdx = Math.min(tack.timing.recovered+6, data.length);
             for (var j=tack.timing.recovered; j < maxIdx; j++) {
                 if ( 'twa' in data[j] ) {
-                    twaSum += data[j].twa;
-                    twaCount++;
+                    averageTwa.update( data[j].twa );
                 }
                 if ( 'hdg' in data[j] ) {
                     hdgs.push( data[j].hdg );
                 }
+                if ( 'speed' in data[j] ) {
+                    averageSpeed.update( data[j].speed );
+                }
             }
 
-            tack.recoveryTwa = twaSum / twaCount;
+            tack.recoveryTwa = averageTwa.result();
             tack.recoveryHdg = circularMean(hdgs);
+
+            tack.recoverySpeed = averageSpeed.result();
+
+            if (tack.targetSpeed && tack.recoverySpeed < tack.targetSpeed * 0.9) {
+                tack.notes.push('* never came back up to speed');
+            }
         },
 
         convertIndexesToTimes: function convertIndexesToTimes(tack, data) {
@@ -512,8 +658,7 @@
     /**
      * Gets a subset of the data, between the times specified
      */
-    function getSliceBetweenTimes(data, from, to) {
-        
+    function getSliceBetweenTimes(data, from, to) {      
         var fromIdx = _.sortedIndex(data, {t: from}, function(d) { return d.t; });
         var toIdx = _.sortedIndex(data, {t: to}, function(d) { return d.t; });            
 
@@ -522,41 +667,43 @@
      
 
     function findManeuvers(data) {
-        var maneuvers = [];
+        function board(point) {
+            var b = null;
+            if ( 'twa' in point ) {
+                b = 'U-S';
+                if (-90 <= point.twa && point.twa < 0)
+                    b = 'U-P';
+                else if (point.twa < -90)
+                    b = 'D-P';
+                else if (point.twa > 90)
+                    b = 'D-S';
 
-        //fimd maneuvers
-        var lastBoard = null;
-        var lastBoardStart = data[0].t;
-        for (var i = 0; i < data.length; i++) {
-            if ( 'twa' in data[i] ) {
-                var board = 'U-S';
-                if (-90 <= data[i].twa && data[i].twa < 0)
-                    board = 'U-P';
-                else if (data[i].twa < -90)
-                    board = 'D-P';
-                else if (data[i].twa > 90)
-                    board = 'D-S';
-
-                if (data[i].ot < 300) {
-                    board = "PS";
+                if (point.ot < 300) {
+                    b = "PS";
                 }
-
-                if (lastBoard != board) {
-                    if ( lastBoard !== null ) {
-                        maneuvers.push({
-                            board: lastBoard,
-                            start: lastBoardStart,
-                            end: data[i].t
-                        });
-                    }
-                    lastBoard = board;
-                    lastBoardStart = data[i].t;
-                }
-
             }
+            return b;
         }
 
-        return maneuvers;
+        return homegrown.streamingUtilities.createChangeDataSegments(data, board);
+    }
+
+    function findLegs(data) {
+        function leg(point) {
+            var l = null;
+            if (point.ot < 300) {
+                l = "PS";
+            }
+            else if ('twa' in point) {
+                if (Math.abs(point.twa) < 90)
+                    l = 'Upwind';
+                else 
+                    l = 'Downwind';
+            }
+            return l;
+        }
+
+        return homegrown.streamingUtilities.createChangeDataSegments(data, leg);
     }
 
     function analyzeTacks(maneuvers, data) {
@@ -878,6 +1025,9 @@ function buildOutData(dat, offset, calibrate) {
         delayedInputs(function targetVmg(targetSpeed, targetAngle, vmg) {
             return calcs.vmg(targetSpeed, targetAngle);
             // return (targetVmg / vmg) * 100;
+        }),
+        delayedInputs(function performance(targetVmg, vmg) {
+            return (targetVmg / vmg) * 100;
         }),
 
         //TODO: smooth and filter wind vars
@@ -1239,30 +1389,6 @@ var graphView = Backbone.View.extend({
 ;
 var variance = 0; 
 
-function getSegmentedTracks(track, segments) {
-    var segs = _.clone(segments, true);
-
-    _.each(segs, function(seg) {
-        seg.data = [];
-    });
-
-    var j = 0;
-    for ( var i=0; i < track.length; i++ ) {
-        if ( track[i].t < segs[j].start ) {
-            continue;
-        }
-        else if ( track[i].t < segs[j].end ) {
-            segs[j].data.push(track[i]);
-        }
-        else {
-            j++;
-            if (j >= segs.length) break;
-        }
-    }
-
-    return segs;
-}
-
 var mapView = Backbone.View.extend({
     className: 'map',
     initialize: function(options) {
@@ -1336,18 +1462,11 @@ var mapView = Backbone.View.extend({
                                 .attr("class", "compass")
                                 .attr('transform', 'rotate(-'+angle+')');
 
-            // compass.append("circle")
-            //     .attr("r", 20) 
-
             compass.append("path")
-                .attr('class', 'ew')
-                .attr("d", "M17,0 L0,3 L-17,0 L0,-3 L17,0")
+                .attr('class', 'rose')
+                .attr('transform', 'translate(-15, -15)')
+                .attr("d", "m 5.504372,5.3780677 3.2668,5.3903203 a 7.5119625,7.5119625 0 0 1 2.0986,-2.0801703 l -5.3654,-3.31015 z m 19.22843,0.20867 -5.45437,3.19174 a 7.5119625,7.5119625 0 0 1 2.10119,2.2098903 l 3.35318,-5.4016303 z m -15.96422,13.5443603 -3.30983,5.36541 5.40941,-3.27845 a 7.5119625,7.5119625 0 0 1 -2.09958,-2.08696 z m 12.44508,0.0508 a 7.5119625,7.5119625 0 0 1 -2.1963,2.12028 l 5.39743,3.34994 -3.20113,-5.47022 z m -6.15153,-19.2277903 -2.41014,9.82531 a 5.8244926,5.6339721 11 0 0 -2.95364,2.8630603 l -9.69300001,2.29659 9.79652001,2.4027 a 5.8244926,5.6339721 11 0 0 2.63531,2.61817 l 2.33929,9.9945 2.5664,-9.80751 a 5.8244926,5.6339721 11 0 0 2.898,-2.63693 l 9.76448,-2.28495 -9.67907,-2.53275 a 5.8244926,5.6339721 11 0 0 -2.92356,-2.8588603 l -2.34059,-9.87933 z m -0.0569,11.9245603 a 3.102767,3.0755499 0 0 1 3.10278,3.07561 3.102767,3.0755499 0 0 1 -3.10278,3.0756 3.102767,3.0755499 0 0 1 -3.10277,-3.0756 3.102767,3.0755499 0 0 1 3.10277,-3.07561 z");
 
-            compass.append("path")
-                .attr("d", "M0,-18 L3,0 L0,18 L-3,0 L0,-18")
-
-            compass.append("path")
-                .attr("d", "M4,4 L4,-4 L-4,-4 L-4,4 L4,4")
 
             compass.append('text')
                 .attr('dy', -20)
@@ -1359,8 +1478,8 @@ var mapView = Backbone.View.extend({
             //     .attr("r", 4) 
     },
     renderTackLabels: function(world, view, projection, angle, width, height) {
-        var labels = world.append('g')
-            .attr('class', 'labels');
+        var tackCosts = world.append('g')
+            .attr('class', 'layer tack-costs');
           
         if ('tacks' in view.model) {
             var nodes = [];
@@ -1410,7 +1529,7 @@ var mapView = Backbone.View.extend({
             //     return i % 2 == 0 ? "" : d.node.label
             // }).style("fill", "#555").style("font-family", "Arial").style("font-size", 12);
 
-            labels.selectAll('text.tack-label')
+            tackCosts.selectAll('text.tack-label')
                 .data(_.filter(nodes, function(d) { return 'tack' in d }))
               .enter().append("text")
                 .attr("class", 'tack-label')
@@ -1468,31 +1587,69 @@ var mapView = Backbone.View.extend({
             this.renderAnnotations(svg, angle);
         }
 
-        // track
+        // world
         var world = svg.append('g')
             .attr('class', 'world')        
             .attr('transform', function() { return "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")" });
+
+
+        //performance underlay
+        var perfScale = d3.scale.threshold()
+            .domain([50, 90, 100, 110])
+            .range(["black", "red", "pink", "white", "yellow"]);
+
+        var legend = {
+            "red": "< 90% Target VMG",
+            "pink": "between 90% and 100%",
+            "white": "between 100% and 110%",
+            "yellow": "> 110% Target VMG"
+        };
+
+
+        svg.append("g")
+            .attr("class", "layer performance")
+            .selectAll("text.legend")
+            .data(perfScale.range().slice(1))
+            .enter()
+                .append("text")
+                    .attr("class", function(d) { return "legend "+d; })
+                    .style("fill", function(d) { return d; })
+                    .attr("x", 20)
+                    .attr("y", function(d, i) { return 400 + 20*i; })
+                    .text(function(d) { return legend[d]; })
+
+
+        var polars = _(homegrown.streamingUtilities.createSummaryDataSegments(this.model.data, 'performance', 10000))
+                        .filter(function(d) { return d.performance > 50 && d.performance < 151 })
+                        .each(function(d) { d.color = perfScale(d.performance); })
+                        .value();
         
-        
-        var tracks = getSegmentedTracks(this.model.data, this.model.maneuvers);
-        _.each(tracks, function(seg) {
+        var polarTracks = homegrown.streamingUtilities.segmentData(this.model.data, polars);
+        _.each(polarTracks, function(seg) {
             seg.track = {type: "LineString", coordinates: _.compact( _.map(seg.data, function(d) { return [d.lon, d.lat] }) )};
         });
 
-        world.selectAll("path.highlight")
-              .data(tracks)
+        var polarHighlights = world.append('g')
+                .attr('class', 'layer performance');
+        
+        polarHighlights.selectAll("path.highlight")
+              .data(polarTracks)
             .enter()
               .append("path")
-                .attr('class', function(d) { return 'highlight ' + d.className; })
+                .attr('class', 'highlight')
+                .style('stroke', function(d) { return d.color; })
                 .attr("d", function(d) { return trackPath(d.track) });
 
 
+        //track
         world.append('path')
             .attr('class', 'track')
             .attr('d', trackPath(track))
 
 
+        
         this.renderTackLabels(world, view, projection, angle, width, height);
+
 
         
         //create boat and put at start of race
@@ -1514,38 +1671,29 @@ var mapView = Backbone.View.extend({
 
             var coord = projection([point.lon, point.lat]);
             
-            boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)")
+            boat.attr('transform', 'translate('+(coord[0])+","+(coord[1]) +")scale(.06)rotate("+point.hdg+",-10,-10)");
 
             //TODO: smooth the TWD
-            // if ( 'twd' in point ) 
-            //     wind.attr('transform', 'rotate('+ (180-angle+point.twd) +')')
+            if ( 'twd' in point ) {
+                svg.select('g.wind').attr('transform', 'rotate('+ (180-angle+point.twd) +')');
+            }
         });
 
-        this.listenTo(app, 'zoom', function(start, end) {
-            // if ( start - allTimeRange[0] != 0 ) start -= 60000
-            // if ( end - allTimeRange[1] != 0 ) end = 60000 + end.getTime() //can't add date and int, but can subtract...
-            
-            // var trackPart = {type: "LineString", coordinates: _.compact( _.map(this.model.data, function(d) { if(d.t >= start && d.t <= end) return [d.lon, d.lat] }) ) };
-            
-            // var center = trackPath.centroid(trackPart);
-            // var partBounds = trackPath.bounds(trackPart);
-            // var bounds = trackPath.bounds(track);
-
-            // var scale = Math.max( Math.abs((bounds[1][0] - bounds[0][0])/(partBounds[1][0] - partBounds[0][0])), Math.abs((bounds[1][1] - bounds[0][1])/(partBounds[0][1] - partBounds[1][1])) );
-            // console.info('scale', scale, (bounds[1][0] - bounds[0][0]), (partBounds[1][0] - partBounds[0][0]), (bounds[1][1] - bounds[0][1]), (partBounds[0][1] - partBounds[1][1]));
-
-            // center[0] = (width/2 - center[0]) / scale;
-            // center[1] = (height/2 - center[1]) / scale;
-            // svg.selectAll('.world')
-            //     .attr('transform', "rotate(-"+angle+"," + (width / 2) + "," + (height / 2) + ")translate("+center[0]+","+center[1]+")scale("+scale+")" )
-
-            
-        });
-
-        
-
+        this.renderLayerToggles();
         this.renderScrubber(width, height);
 
+    },
+    renderLayerToggles: function() {
+        $('<div class="layers"><a class="button" href="#tack-costs">Tacks</a><a class="button" href="#performance">Performance</a><a class="button" href="#clear">Clear</a></div>').appendTo(this.el);
+        
+        $('.layers .button', this.el).click(function() {
+            $('.layer').hide();
+            var layerName = this.getAttribute('href').slice(1);
+            console.info('layer', layerName, this);
+            $('.layer.'+layerName).show();
+            return false;
+        })
+            .eq(1).click(); //select performance
     },
     renderScrubber: function(width, height) {
         //set up background color blocks
@@ -1597,13 +1745,26 @@ var mapView = Backbone.View.extend({
         }
 
 
+        // function brushed(a,b,c,d) {
+        //     console.info('brushed', a,b,c,d );
+        // }
+
+        var brush = d3.svg.brush()
+            .x(x)
+            .extent([0, 0])
+            .on("brush", brushed);
+
+
         var scrubSvg = d3.select(this.el).append("svg")
             .attr("width", width)
             .attr("height", 60)
+            .attr("class", "scrubber")
         .append("g")
             .attr("transform", "translate(40, 10)");
 
-        
+        scrubSvg.append("g")
+            .attr("class", "g-slider")
+            .call(brush);        
 
         
         scrubSvg.append("g")
@@ -1618,10 +1779,15 @@ var mapView = Backbone.View.extend({
                 .attr("height", 10)
                 // .attr("fill", function(d) { return d.color; });
 
-        scrubSvg.append("g")
-                .attr("class", "x axis")
+        var axis = scrubSvg.append("g")
+                .attr("class", "scrub axis")
                 .attr("transform", "translate(0,-10)")
-                .call(xAxis)
+                .call(xAxis);
+
+        scrubSvg.append('path')
+            .attr('d', 'M0,-80 C60,0 50,50 35,80 L-35,80 C-50,50 -60,0 0, -80')
+            .attr('class', 'boat')
+            .attr('transform', 'scale(.12)');
                 
 
         scrubSvg.on('mousemove', function(a,b,c,d) {
@@ -1630,6 +1796,25 @@ var mapView = Backbone.View.extend({
             app.trigger('scrub', new Date(time), pos);
         });
 
+        function brushed() {
+            if (d3.event.sourceEvent) { // not a programmatic event
+                if (d3.event.sourceEvent.target.parentNode === this) { // clicked on the brush
+                    playButton.text("Play");
+                    targetValue = x.invert(d3.mouse(this)[0]);
+                    move();
+                }
+            } else {
+                currentValue = brush.extent()[0];
+                handle.attr("cx", x(currentValue));
+                var i = Math.round(currentValue) + indexOffset;
+                gate.classed("g-course-crossed", function(d) { return currentValue >= d.properties.time; });
+                boat.attr("transform", function(d) { return "translate(" + projection(d.coordinates[i]) + ")"; });
+                track.attr("d", function(d) { return path({type: "LineString", coordinates: d.coordinates.slice(0, i + 1)}); });
+                trail.attr("d", function(d) { return path({type: "LineString", coordinates: d.coordinates.slice(Math.max(0, i - trailLength), i + 1)}); });
+                wind.select(".g-speed").text(function(d) { return windFormat(d[i][3]) + " knots"; });
+                compass.attr("transform", function(d) { return "rotate(" + (180 + d[i][4]) + ")"; });
+            }
+        }
     },
     onSelect: function(range) {
 
@@ -1663,8 +1848,8 @@ var tackMapView = Backbone.View.extend({
         var width = this.$el.width() - margin.left - margin.right,
             height = this.$el.height() - margin.top - margin.bottom;
 
-        width = width || 200;
-        height = height || 200;
+        width = width || 400;
+        height = height || 400;
 
         // get extent of track, and make GEOJSON object
         var allTimeRange = d3.extent(this.model.data, function(d) { return d.t; });
@@ -1856,7 +2041,7 @@ tagName: 'div',
             margin.top = 30;
         }
 
-        var width = 200 - margin.left - margin.right,
+        var width = 400 - margin.left - margin.right,
             height = 200 - margin.top - margin.bottom;
 
         var zoom = false;
@@ -2108,7 +2293,7 @@ tagName: 'div',
     }
 });
 
-var tackView = Backbone.Marionette.LayoutView.extend({
+var tackView = Backbone.View.extend({
     className: 'tack-view',
     template: "#tackscreen",
     regions: {
@@ -2139,11 +2324,17 @@ var tackView = Backbone.Marionette.LayoutView.extend({
         });
 
         this.model = new Backbone.Model({'type':'popover'});
+
+        this.template = Handlebars.compile($("#tackscreen").html());
     },
 
-    onRender: function() {
+    render: function() {
         var view = this;
         
+        this.$el.html( this.template(this.templateHelpers()) );
+
+
+
         //map
         var refs = _.map([[this.tack.timing.start,this.tack.entryHdg], [this.tack.timing.end,this.tack.recoveryHdg]], function(p) {
             var time = p[0];
@@ -2157,10 +2348,12 @@ var tackView = Backbone.Marionette.LayoutView.extend({
             };
         });
         var track = new tackMapView({model: {data:this.tack.track, up: this.tack.twd}, events: false, annotations: false, circles: moment(this.tack.time), references: refs});
-        this.map.show(track);
+        this.$('.tackMap').append(track.el);
+        track.render();
 
         var graph = new tackGraphView(this.tack.data, this.tack);
-        this.graph.show(graph);
+        this.$('.tackGraph').append(graph.el);
+        graph.render();
     }
 });
 

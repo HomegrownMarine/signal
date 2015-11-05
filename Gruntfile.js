@@ -36,10 +36,6 @@ module.exports = function(grunt) {
                 'async.js': 'async:main',
                 'backbone.js': 'backbone:main',
                 'chroma.js': 'chroma-js:main',
-                
-                'backbone.wreqr.js': 'backbone.wreqr:main',
-                'backbone.babysitter.js': 'backbone.babysitter:main',
-                'backbone.marionette.js': 'backbone.marionette:main',
                 'handlebars.js': 'handlebars:main'
             }
         },
@@ -114,7 +110,7 @@ module.exports = function(grunt) {
 
     watch: {
       files: ['www/js/signal/*.js','www/css/*.less'],
-      tasks: ['concat:homegrown', 'jshint', 'less']
+      tasks: ['homegrown']
     }
   });
 
@@ -127,6 +123,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-bowercopy');
 
   // Default task(s).
+  grunt.registerTask('homegrown', ['concat:homegrown', 'jshint', 'less']);
   grunt.registerTask('build', ['bowercopy', 'concat', 'uglify']);
   grunt.registerTask('test', ['jshint']);
   grunt.registerTask('default', ['build']);
