@@ -48,13 +48,24 @@ module.exports = function(grunt) {
         ignorePath: /^(\.\.\/)*\.\./
       }
     },
-
+    uglify: {
+      options: {
+        banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n',
+        sourceMap: true,
+      }
+    },
     // Reads HTML for usemin blocks to enable smart builds that automatically
     // concat, minify and revision files. Creates configurations in memory so
     // additional tasks can operate on them
     useminPrepare: {
       options: {
-        dest: 'dist'
+        dest: 'dist',
+        flow: {
+          steps: {
+            js: ['concat']
+          },
+          post: {}
+        }
       },
       html: 'www/race.html'
     },
@@ -106,6 +117,17 @@ module.exports = function(grunt) {
             'css/{,*/}*.css'
           ]
         }]
+      },
+      data: {
+        files: [{
+          expand: true,
+          dot: true,
+          cwd: 'data',
+          dest: 'dist/data',
+          src: [
+            '{,*/}*.js'
+          ]
+        }]
       }
     },
 
@@ -136,9 +158,10 @@ module.exports = function(grunt) {
     'useminPrepare',
     'concat',
     'uglify',
+    // 'filerev',    
     'copy:dist',
-    'filerev',
-    'usemin'
+    'usemin',
+    'copy:data'
   ]);
 
 };

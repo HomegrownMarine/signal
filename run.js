@@ -58,24 +58,24 @@ server.get('/', function(req, res) {
 });
 
 //returns current set of data for boat
-server.get('/tacks.js', function(req, res) {
+server.get('/data/tacks.js', function(req, res) {
     res.setHeader("content-type", "application/json");
     fs.createReadStream("./data/tacks.js").pipe(res);
 });
 
 //returns current set of data for boat
-server.get('/tacks_1h.js', function(req, res) {
+server.get('/data/tacks_1h.js', function(req, res) {
     res.setHeader("content-type", "application/json");
     fs.createReadStream("./data/tacks_1h.js").pipe(res);
 });
 
 //returns current set of data for boat
-server.get('/races.js', function(req, res) {
+server.get('/data/races.js', function(req, res) {
     res.setHeader("content-type", "application/json");
     fs.createReadStream("./data/races.js").pipe(res);
 });
 
-server.get('/races/:race.js', function(req, res) {
+server.get('/data/races/:race.js', function(req, res) {
     var race = req.params.race;
     res.setHeader("content-type", "application/json");
     fs.createReadStream("./data/races/"+race+".js").pipe(res);
