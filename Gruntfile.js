@@ -44,7 +44,7 @@ module.exports = function(grunt) {
 
     wiredep: {
       app: {
-        src: ['www/race.html'],
+        src: ['www/race.html', 'www/index.html'],
         ignorePath: /^(\.\.\/)*\.\./
       }
     },
@@ -67,7 +67,7 @@ module.exports = function(grunt) {
           post: {}
         }
       },
-      html: 'www/race.html'
+      html: ['www/race.html', 'www/index.html']
     },
 
     // Performs rewrites based on rev and the useminPrepare configuration

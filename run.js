@@ -15,47 +15,47 @@ server.use('/', express.static(path.join(__dirname, 'www')));
 server.use('/www', express.static(path.join(__dirname, 'www')));
 server.use('/bower_components', express.static(path.join(__dirname, 'bower_components')));
 
-var indexTemplate = null;
-fs.readFile(path.join(__dirname,'templates/index.html'), {encoding:'utf8'}, function(err, data) {
-    if (err) {
-        winston.error('logs: error loading template', err);
-        return;
-    }
+// var indexTemplate = null;
+// fs.readFile(path.join(__dirname,'templates/index.html'), {encoding:'utf8'}, function(err, data) {
+//     if (err) {
+//         winston.error('logs: error loading template', err);
+//         return;
+//     }
 
-    indexTemplate = handlebars.compile(data);
-});
+//     indexTemplate = handlebars.compile(data);
+// });
 
 //returns current set of data for boat
-server.get('/', function(req, res) {
-    fs.readFile(path.join(__dirname,'data/races.js'), {encoding:'utf8'}, function(err, raceJSON) {
-        if (err) {
-            winston.error('logs: error loading template', err);
-            return;
-        }
+// server.get('/', function(req, res) {
+//     fs.readFile(path.join(__dirname,'data/races.js'), {encoding:'utf8'}, function(err, raceJSON) {
+//         if (err) {
+//             winston.error('logs: error loading template', err);
+//             return;
+//         }
 
-        var races = JSON.parse(raceJSON);
+//         var races = JSON.parse(raceJSON);
 
-        var years = _(races)
-            .filter({"boat": "Project Mayhem"})
-            .sortBy('date')
-            .reverse()
-            .groupBy(function(o) { return o.date.slice(0,4); })
-            .map(function(races, year) {
-                var regattas = _(races)
-                    .groupBy('regatta')
-                    .map(function(races, regatta) {
-                        return {name:regatta,  races:_.sortBy(races, 'race')};
-                    })
-                    .value();
+//         var years = _(races)
+//             .filter({"boat": "Project Mayhem"})
+//             .sortBy('date')
+//             .reverse()
+//             .groupBy(function(o) { return o.date.slice(0,4); })
+//             .map(function(races, year) {
+//                 var regattas = _(races)
+//                     .groupBy('regatta')
+//                     .map(function(races, regatta) {
+//                         return {name:regatta,  races:_.sortBy(races, 'race')};
+//                     })
+//                     .value();
   
-                return {year: year, regattas: regattas};
-            })
-            .sortBy(function(year) { return year.year*-1; })
-            .value();
+//                 return {year: year, regattas: regattas};
+//             })
+//             .sortBy(function(year) { return year.year*-1; })
+//             .value();
 
-        res.send( indexTemplate({years: years}) );
-    });
-});
+//         res.send( indexTemplate({years: years}) );
+//     });
+// });
 
 //returns current set of data for boat
 server.get('/data/tacks.js', function(req, res) {
