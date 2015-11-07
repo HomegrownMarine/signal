@@ -3,9 +3,25 @@
     <head>
         <title>Race Replay</title>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=1320, user-scalable=no">
-        <script src="js/lib.js"></script>
+        <meta name="viewport" content="width=1320, initial-scale=.6">
+        
+        <link href="css/race.css" rel="stylesheet" type="text/css">
 
+        <!-- build:js(.) js/lib.js -->
+        <!-- bower:js -->
+        <script src="/bower_components/jquery/dist/jquery.js"></script>
+        <script src="/bower_components/lodash/lodash.js"></script>
+        <script src="/bower_components/moment/moment.js"></script>
+        <script src="/bower_components/d3/d3.js"></script>
+        <script src="/bower_components/backbone/backbone.js"></script>
+        <script src="/bower_components/handlebars/handlebars.js"></script>
+        <script src="/bower_components/homegrown-polars/dist/polars.js"></script>
+        <script src="/bower_components/homegrown-sailing/dist/sailing.js"></script>
+        <script src="/bower_components/async/lib/async.js"></script>
+        <script src="/bower_components/chroma-js/chroma.js"></script>
+        <!-- endbower -->
+        <!-- endbuild -->
+        
         <script>
             if ( typeof window.console === 'undefined' ) {
                 window.console = {
@@ -14,199 +30,26 @@
             }
 
             var app = _.extend({}, Backbone.Events);
-            
-            var less = { 
-                    env: 'development',
-                    errorReporting: 'console' 
-                };
-
         </script>
 
-        <script src="js/signal.js"></script>
+        <!-- build:js(.) js/signal.js -->
+        <script src="/www/js/data.js"></script>
+        <script src="/www/js/graph.js"></script>
+        <script src="/www/js/map.js"></script>
+        <script src="/www/js/tackMap.js"></script>
+        <script src="/www/js/tackGraph.js"></script>
+        <script src="/www/js/tackView.js"></script>
+        <!-- endbuild -->
 
-        <script>
-            var metrics = [{'metric':'tws', 'group':'wind'},
-                           {'metric':'twd', 'group':'twd'},
-                           {'metric':'gwd', 'group':'twd'},
-                           {'metric':'performance', 'group':'percent'},
-                           {'metric':'sog', 'group':'speed'}, 
-                           {'metric':'speed', 'group':'speed'},
-                           {'metric':'targetSpeed', 'group':'speed'}, 
-                           {'metric':'hdg', 'group':'heading'},
-                           {'metric':'cog', 'group':'heading'},
-                           {'metric':'aawa', 'group':'angle', 'transform':function(val) { return Math.abs(val) }},
-                           {'metric':'atwa', 'group':'angle', 'transform':function(val) { return Math.abs(val) }},
-                           {'metric':'targetAngle', 'group':'angle'}, 
-                           {'metric':'trim', 'group':'heel'},
-                           {'metric':'heel', 'group':'heel'},
-                           {'metric':'targetHeel', 'group':'heel'}, 
-                           {'metric':'vmg', 'group':'speed'} ];
+        <!-- build:js(.) js/raceapp.js -->
+        <script src="/www/js/raceapp.js"></script>
+        <!-- endbuild -->
 
-            var configs = {
-                'wind': {showX: true},
-                'percent': {rangeY: [80, 120]},
-                'angle': {invertY: true}
-            }
-
-            var graphs = [];
-            
-            function initialize() {
-                showCheckboxes();
-                showMap();
-                showGraphs();
-            }
-
-            function showCheckboxes() {
-                var keys = ['tws', 'sog', 'speed', 'hdg'];
-                if (localStorage.race_metrics) {
-                    keys = JSON.parse(localStorage.race_metrics);
-                }
-
-                _(metrics).each(function(metric) {
-                    $('<label><input type="checkbox" class="metric">'+metric.metric+'</label>')
-                        .appendTo('#checkboxes')
-                        .find('input')
-                            .prop('checked', _.contains(keys, metric.metric))
-                            .val(metric.metric)
-                })
-
-                $('#checkboxes').on('change', '.metric', function() {
-                    if (this.checked) {
-                        keys.push(this.value);
-                    }
-                    else {
-                        keys = _.without(keys, this.value);
-                    }
-
-                    localStorage.race_metrics = JSON.stringify(keys);
-                    showGraphs();
-                })
-            }
-
-            function showMap() {
-                //TODO: highlight nearest data point for all series
-                //TODO: map to boat
-
-                var map = window.map = new mapView({model: window.race, el: '#map_canvas'});
-                map.render();
-            }
-
-            function showGraphs() {
-
-                var keys = ['tws', 'performance', 'speed', 'targetSpeed', 'atwa', 'targetAngle'];
-                // if (localStorage.race_metrics) {
-                //     keys = JSON.parse(localStorage.race_metrics);
-                // }
-
-                _.each(graphs, function(graph) { 
-                    graph.remove();
-                });
-                graphs = [];
-
-                graphs = _(metrics)
-                            .filter(function(m){ return _.contains(keys, m.metric)})
-                            .groupBy(function(m) { return m.group })
-                            .map( function(ms, name) {
-                                var graph = new graphView({race: window.race, series: _.pluck(ms, 'metric'), id: name+'_graph'}, configs[name]);
-                                $('#graphs').append(graph.el);
-                                graph.render();
-                                return graph;
-                            }).value();
-            }                
-              
-            //default race to example
-            var race_id = window.location.search.substr(1) || '2014_nas_6';
-
-            var racesPromise = $.ajax('/races.js', {
-                dataType: 'json'
-            }).promise();
-
-            var raceDataPromise = $.ajax('/races/'+race_id+'.js', {
-                dataType: 'json'
-            }).promise();
-
-            //load data  
-            $(function() {
-                
-
-                Backbone.Marionette.TemplateCache.prototype.compileTemplate = function(rawTemplate) {
-                    return Handlebars.compile(rawTemplate);
-                };
-
-                Handlebars.registerHelper('fixed', function(value, precision) {
-                    if (!_.isNumber(value)) {
-                        return "NaN";
-                    }
-                    precision = _.isNumber(precision)? precision: 1;
-                    return value.toFixed(precision);
-                });
-
-                
-
-                Promise.all([racesPromise, raceDataPromise]).then(function(results) {
-                        
-                        var races = results[0];
-                        window.g_races = races;
-
-                        var raceData = results[1];
-
-                        var race = window.race = _.find(races, function(r) {
-                            return r.id == race_id;
-                        });
-
-                        $('h2').text( [race.date, race.regatta, 'Race', race.race].join(' ') );
-
-                        race.data = raceData;
-                        var start = moment(race.date+' '+race.startTime, "YYYYMMDD HH:mm");
-                        race.stttt = start;
-
-                        var ret = buildOutData( race.data, start.valueOf() );
-                        
-                        _.extend(window.race, ret);
-
-                        var BOARD_COLORS = {
-                            'D-P': '#F2E9E9',
-                            'D-S': '#E9F2E9',
-                            'U-S': '#F5FFF5',
-                            'U-P': '#FFF5F5',
-                            'PS': '#fcfcfc'
-                        };
-
-                        _.each(window.race.maneuvers, function(d) {
-                            d.color = BOARD_COLORS[d.board];
-                            
-                            var c = ['board'];
-
-                            if ( d.board.charAt(0) == 'D' )
-                                c.push('downwind');
-
-                            if (d.board.charAt(2) == 'P') c.push('port');
-                            if (d.board.charAt(2) == 'S') c.push('starboard');
-
-                            d.className = c.join(' ');
-                        });
-
-                        initialize();
-                    });
-
-                app.on('select-tack', function(tack, label) {
-                    if ( !label) return;
-                    
-                    var details = $('#graphs').empty();
-
-                    console.info(tack); window.tack = tack;
-
-                    var view = new tackView({tack: tack});
-                    view.render();
-                    view.$el.appendTo(details);
-                });
-            });
-        </script>
-
-        <link href="css/race.css" rel="stylesheet" type="text/css">
+        
     </head>
     <body>
         <h2></h2>
+        <div>Other Races: <select id="race_nav"></select></div>
         <div id="map_canvas" style="width: 550px; height: 550px; float: left; margin-right: 20px">
 
 
@@ -217,12 +60,22 @@
             <div id="checkboxes"></div>
             
         </div>
+
+        <script>
+            $(init);
+        </script>
+
+        <!-- templates -->
         <script type="text/handlebars" id="tackscreen">
 
             <h3>Tack Details</h3>
+            <div>Loss: {{loss}}ft</div>
             <div class="summary">
                 <ul>
-                <li>Loss: {{loss}}ft</li>
+                <li></li>
+                <li>TWS: {{tws}}kts</li>
+                <li>targetAngle: {{targetAngle}}ft</li>
+                <li>targetSpeed: {{targetSpeed}}ft</li>
                 <li>Duration: {{duration}}s</li>
                 <li>Recovery: {{recovery}}s</li>
                 <li>Press: {{fixed press}} degrees <span style="font-size:80%">{{fixed maxTwa}} - {{fixed recoveryTwa}}</span></li>
@@ -239,7 +92,10 @@
             <div class="tackGraph">
             </div>
         </script>
-        <!-- <div id="usage">Click and drag to zoom. Double-clicking will zoom you back out. Shift-drag will pan.</div> -->
+        <script type="text/handlebars" id="header">
 
+        </script>
+
+        
     </body>
 </html>

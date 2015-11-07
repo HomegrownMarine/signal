@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Project Mayhem Races</title>
+        <meta charset="UTF-8">
+        
+        <!-- build:js(.) js/lib.js -->
+        <!-- bower:js -->
+        <script src="/bower_components/jquery/dist/jquery.js"></script>
+        <script src="/bower_components/lodash/lodash.js"></script>
+        <script src="/bower_components/moment/moment.js"></script>
+        <script src="/bower_components/d3/d3.js"></script>
+        <script src="/bower_components/backbone/backbone.js"></script>
+        <script src="/bower_components/handlebars/handlebars.js"></script>
+        <script src="/bower_components/homegrown-polars/dist/polars.js"></script>
+        <script src="/bower_components/homegrown-sailing/dist/sailing.js"></script>
+        <script src="/bower_components/async/lib/async.js"></script>
+        <script src="/bower_components/chroma-js/chroma.js"></script>
+        <!-- endbower -->
+        <!-- endbuild -->
+
+        <script>
+        var racesPromise = $.ajax('data/races.js', {
+            dataType: 'json'
+        }).promise();
+
+        $(function() {
+            racesPromise.then(function(races) {
+                var years = _(races)
+                    .filter({"boat": "Project Mayhem"})
+                    .sortBy('date')
+                    .reverse()
+                    .groupBy(function(o) { return o.date.slice(0,4); })
+                    .map(function(races, year) {
+                        var regattas = _(races)
+                            .groupBy('regatta')
+                            .map(function(races, regatta) {
+                                return {name:regatta,  races:_.sortBy(races, 'race')};
+                            })
+                            .value();
+          
+                        return {year: year, regattas: regattas};
+                    })
+                    .sortBy(function(year) { return year.year*-1; })
+                    .value();
+
+                var template = Handlebars.compile($("#races").html());
+                $(template({years:years})).appendTo('body');
+            });
+        });
+        </script>
+    </head>
+    <body>
+        <script type="text/handlebars" id="races">
+            {{#each years}}
+                <h3>{{year}}</h3>
+                {{#each regattas}}
+                    <h4>{{name}}</h4>
+                    <ul>
+                        {{#each races}}
+                        <li><a href="race.html?{{id}}">Race {{race}}</a></li>
+                        {{/each}}
+                    </ul>
+                {{/each}}
+            {{/each}}
+        </script>
+    </body>
+</html>
