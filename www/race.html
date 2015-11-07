@@ -3,8 +3,10 @@
     <head>
         <title>Race Replay</title>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=1320, user-scalable=no">
+        <meta name="viewport" content="width=1320, initial-scale=.6">
         
+        <link href="css/race.css" rel="stylesheet" type="text/css">
+
         <!-- build:js(.) js/lib.js -->
         <!-- bower:js -->
         <script src="/bower_components/jquery/dist/jquery.js"></script>
@@ -43,10 +45,11 @@
         <script src="/www/js/raceapp.js"></script>
         <!-- endbuild -->
 
-        <link href="css/race.css" rel="stylesheet" type="text/css">
+        
     </head>
     <body>
         <h2></h2>
+        <div>Other Races: <select id="race_nav"></select></div>
         <div id="map_canvas" style="width: 550px; height: 550px; float: left; margin-right: 20px">
 
 
@@ -57,6 +60,12 @@
             <div id="checkboxes"></div>
             
         </div>
+
+        <script>
+            $(init);
+        </script>
+
+        <!-- templates -->
         <script type="text/handlebars" id="tackscreen">
 
             <h3>Tack Details</h3>
@@ -83,10 +92,10 @@
             <div class="tackGraph">
             </div>
         </script>
-        <!-- <div id="usage">Click and drag to zoom. Double-clicking will zoom you back out. Shift-drag will pan.</div> -->
+        <script type="text/handlebars" id="header">
 
-        <script>
-            $(init);
         </script>
+
+        
     </body>
 </html>

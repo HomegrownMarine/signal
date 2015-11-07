@@ -108,6 +108,25 @@ function init() {
         return value.toFixed(precision);
     });
 
+    //build dropdown of all races, to easily navigate between them
+    racesPromise.then(function(races) {
+        var raceOptions = _(races)
+                    .filter({"boat": "Project Mayhem"})
+                    .sortBy('date')
+                    .reverse()
+                    .map(function(race) {
+                        var date = moment(race.date, 'YYYYMMDD');
+                        return '<option value="'+race.id+'">'+[date.format('YYYY'), race.regatta, 'Race', race.race].join(' ') +'</option>';
+                    })
+                    .value();
+        $('#race_nav')
+            .html(raceOptions.join())
+            .change(function(a,b,c,d) {
+                var race = $(this).val();
+                window.location = window.location.href.split('?')[0] + '?' + race;
+            }); 
+
+    });
     Promise.all([racesPromise, raceDataPromise]).then(function(results) {
             
             var races = results[0];
@@ -119,7 +138,7 @@ function init() {
                 return r.id == race_id;
             });
 
-            $('h2').text( [race.date, race.regatta, 'Race', race.race].join(' ') );
+            $('h2').text( [race.regatta, 'Race', race.race, '-', moment(race.date, 'YYYYMMDD').format('ddd, MMM Do YYYY')].join(' ') );
 
             race.data = raceData;
             var start = moment(race.date+' '+race.startTime, "YYYYMMDD HH:mm");
