@@ -6,6 +6,8 @@ With race data stored as JSON, will graph metrics, associate them with the track
 ![](https://raw.githubusercontent.com/HomegrownMarine/signal/master/README/tack_details.png)
 ![](https://raw.githubusercontent.com/HomegrownMarine/signal/master/README/tack_list.png)
 
+See the latest live here: (http://gradymorgan.com/signal/race.html?2015_worlds_8)
+
 ##Installation:
 
 - This assumes that data has been processed by [Homegrown Marine/process/](https://github.com/HomegrownMarine/process)
